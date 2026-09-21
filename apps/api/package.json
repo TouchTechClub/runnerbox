@@ -1,0 +1,24 @@
+{
+  "name": "@runnerbox/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "wrangler d1 migrations apply runnerbox-db",
+    "db:migrate:local": "wrangler d1 migrations apply runnerbox-db --local"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.7.0",
+    "@runnerbox/shared": "*",
+    "hono": "^4.7.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.0.0"
+  }
+}

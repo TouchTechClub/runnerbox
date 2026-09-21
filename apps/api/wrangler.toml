@@ -1,0 +1,27 @@
+name = "runnerbox-api"
+main = "src/index.ts"
+compatibility_date = "2026-01-05"
+# libsodium-wrappers probes for a node-ish environment; nodejs_compat keeps
+# its wasm module loader happy on Workers.
+compatibility_flags = ["nodejs_compat"]
+
+# ---- Non-secret config (per-environment overrides go in [env.*] blocks) ----
+[vars]
+APP_URL = "http://localhost:3000"
+GITHUB_APP_ID = ""
+GITHUB_OAUTH_CLIENT_ID = ""
+
+# Secrets (set via `wrangler secret put <NAME>` or .dev.vars locally):
+#   GITHUB_APP_PRIVATE_KEY      — PEM, RSA private key for the GitHub App
+#   GITHUB_WEBHOOK_SECRET       — webhook signing secret
+#   GITHUB_OAUTH_CLIENT_SECRET  — App OAuth client secret
+
+[[d1_databases]]
+binding = "DB"
+database_name = "runnerbox-db"
+database_id = "00000000-0000-0000-0000-000000000000" # replace with `wrangler d1 create` output
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "00000000000000000000000000000000" # replace with `wrangler kv namespace create` output

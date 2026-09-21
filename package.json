@@ -1,0 +1,19 @@
+{
+  "name": "runnerbox",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "for d in packages/shared packages/agent apps/api apps/cli apps/web; do echo \"── $d\"; (bun run --cwd $d typecheck) || exit 1; done",
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "build:agent": "bun run --cwd packages/agent build"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.wrangler/
+.dev.vars
+.env
+.env.*
+*.tgz
+*.tsbuildinfo
+.DS_Store
+coverage/

@@ -1,0 +1,33 @@
+{
+  "name": "runnerbox",
+  "version": "0.1.0",
+  "description": "On-demand iOS simulators & Android emulators on your own GitHub Actions minutes.",
+  "type": "module",
+  "bin": {
+    "runnerbox": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir dist --target node --format esm --external commander --external open --external picocolors && chmod +x dist/cli.js",
+    "dev": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "open": "^10.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@runnerbox/shared": "*",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0"
+  }
+}

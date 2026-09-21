@@ -1,0 +1,15 @@
+# Copy to `.dev.vars` for `wrangler dev`. Never commit real values.
+
+# GitHub App — https://github.com/settings/apps/<your-app>
+GITHUB_APP_ID=123456
+# PEM-encoded RSA private key. Keep the \n escapes on one line, or use a real
+# multi-line PEM inside quotes — both are handled.
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMII...\n-----END RSA PRIVATE KEY-----\n"
+GITHUB_WEBHOOK_SECRET=whsec_change_me
+
+# OAuth ("identify users") credentials from the same GitHub App page.
+GITHUB_OAUTH_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
+GITHUB_OAUTH_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Origin of the web app (used for post-login redirects and CLI verify URLs).
+APP_URL=http://localhost:3000
