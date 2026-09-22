@@ -10,10 +10,10 @@ Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 
 | Field                                                  | Value                                                      |
 | ------------------------------------------------------ | ---------------------------------------------------------- |
-| Homepage URL                                           | `https://runnerbox.dev`                                    |
-| Callback URL                                           | `https://api.runnerbox.dev/api/auth/callback/github`       |
-| Setup URL                                              | `https://runnerbox.dev/onboarding` (redirect on install ✓) |
-| Webhook URL                                            | `https://api.runnerbox.dev/webhooks/github`                |
+| Homepage URL                                           | `https://runnerbox.dpdns.org`                                    |
+| Callback URL                                           | `https://api.runnerbox.dpdns.org/api/auth/callback/github`       |
+| Setup URL                                              | `https://runnerbox.dpdns.org/onboarding` (redirect on install ✓) |
+| Webhook URL                                            | `https://api.runnerbox.dpdns.org/webhooks/github`                |
 | Webhook secret                                         | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
 | Request user authorization (OAuth) during installation | ✓ enabled                                                  |
 
@@ -89,12 +89,12 @@ Default deploy lands on `*.workers.dev` / `*.pages.dev`-style URLs. For the real
 
 | Domain              | Points to               |
 | ------------------- | ----------------------- |
-| `runnerbox.dev`     | `runnerbox-web` website |
-| `api.runnerbox.dev` | `runnerbox-api` worker  |
+| `runnerbox.dpdns.org`     | `runnerbox-web` website |
+| `api.runnerbox.dpdns.org` | `runnerbox-api` worker  |
 
-Add as custom domains in the CF dashboard (or `Cloudflare.Domain` resources in `alchemy.run.ts`), then set `APP_URL=https://runnerbox.dev` and update `PROD_API_URL` in `packages/shared/src/constants.ts` + `API_URL` var → `https://api.runnerbox.dev`, redeploy.
+Add as custom domains in the CF dashboard (or `Cloudflare.Domain` resources in `alchemy.run.ts`), then set `APP_URL=https://runnerbox.dpdns.org` and update `PROD_API_URL` in `packages/shared/src/constants.ts` + `API_URL` var → `https://api.runnerbox.dpdns.org`, redeploy.
 
-**GitHub App callback + webhook URLs** must match the final API domain — update them in App settings if you add `api.runnerbox.dev`.
+**GitHub App callback + webhook URLs** must match the final API domain — update them in App settings if you add `api.runnerbox.dpdns.org`.
 
 ---
 

@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 350
     steps:
       - name: RunnerBox agent
-        uses: runnerbox/runner@v1
+        uses: TouchTechClub/runner@v1
         with:
           token: ${{ secrets.RUNNERBOX_TOKEN }}
 ```
@@ -43,7 +43,7 @@ agent-device open <app> --platform ios
 | Input     | Required | Default                     | Description                                  |
 | --------- | -------- | --------------------------- | -------------------------------------------- |
 | `token`   | yes      | —                           | `RUNNERBOX_TOKEN` repo secret                |
-| `api_url` | no       | `https://api.runnerbox.dev` | API base URL (staging override)              |
+| `api_url` | no       | `https://api.runnerbox.dpdns.org` | API base URL (staging override)              |
 | `version` | no       | `v1`                        | Release tag of the agent tarball to download |
 
 ## What the step does

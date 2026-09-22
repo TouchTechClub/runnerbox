@@ -9,7 +9,7 @@ import type {
 
 /**
  * API base URL. Same-origin is NOT assumed in prod: the API lives on
- * api.runnerbox.dev and the session cookie (rb_session) rides along via
+ * api.runnerbox.dpdns.org and the session cookie (rb_session) rides along via
  * credentials: "include". In dev, VITE_API_URL is empty (see .env.development)
  * so requests are relative and vite proxies them to `wrangler dev`.
  */

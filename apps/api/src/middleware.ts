@@ -101,7 +101,7 @@ async function seedDemo(env: Env): Promise<void> {
     .values({
       id: DEMO_USER_ID,
       name: "demo-user",
-      email: "demo@runnerbox.dev",
+      email: "demo@runnerbox.dpdns.org",
       emailVerified: true,
       image: "https://avatars.githubusercontent.com/u/9919?v=4",
       login: "demo-user",

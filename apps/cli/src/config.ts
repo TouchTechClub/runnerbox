@@ -3,7 +3,7 @@ import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { PROD_API_URL } from "@runnerbox/shared";
 
-const DEFAULT_WEB_URL = "https://runnerbox.dev";
+const DEFAULT_WEB_URL = "https://runnerbox.dpdns.org";
 
 function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, "");

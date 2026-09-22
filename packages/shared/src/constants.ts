@@ -1,4 +1,4 @@
-export const PROD_API_URL = "https://api.runnerbox.dev";
+export const PROD_API_URL = "https://api.runnerbox.dpdns.org";
 
 /** Repo secret written into the user's repository; authenticates run registration. */
 export const REPO_SECRET_NAME = "RUNNERBOX_TOKEN";
@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 350
     steps:
       - name: RunnerBox agent
-        uses: runnerbox/runner@v1
+        uses: TouchTechClub/runner@v1
         with:
           token: \${{ secrets.RUNNERBOX_TOKEN }}
 `;
