@@ -76,18 +76,8 @@ export type EnsureRunResponse =
     }
   | { state: "dispatching" | "queued" | "booting"; runId: string };
 
-export interface DeviceFlowStartResponse {
-  code: string;
-  userCode: string;
-  verifyUrl: string;
-  expiresIn: number;
-  pollInterval: number;
-}
-
-export type DeviceFlowPollResponse =
-  | { status: "pending" }
-  | { status: "expired" }
-  | { status: "approved"; token: string };
+// Auth/device-flow types are owned by better-auth (RFC 8628 shapes) —
+// clients use the standard endpoints under /api/auth/*.
 
 export interface RepoStatusResponse {
   connected: boolean;

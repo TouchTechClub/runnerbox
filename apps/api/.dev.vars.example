@@ -8,8 +8,14 @@ GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMII...\n-----END RSA PR
 GITHUB_WEBHOOK_SECRET=whsec_change_me
 
 # OAuth ("identify users") credentials from the same GitHub App page.
-GITHUB_OAUTH_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
-GITHUB_OAUTH_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Callback URL to register there: {API_URL}/api/auth/callback/github
+GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
+GITHUB_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-# Origin of the web app (used for post-login redirects and CLI verify URLs).
+# better-auth session signing secret — `openssl rand -hex 32`
+BETTER_AUTH_SECRET=change_me_to_a_32+_char_random_string
+
+# Origin of the web app (CORS, post-login redirects, CLI verify URLs) and of
+# this API (better-auth baseURL). API_URL defaults to the wrangler dev origin.
 APP_URL=http://localhost:3000
+API_URL=http://localhost:8787

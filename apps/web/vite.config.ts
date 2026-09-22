@@ -9,7 +9,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Same-origin in dev: vite proxies auth + API to `wrangler dev`.
-      "/auth": { target: DEV_API_TARGET, changeOrigin: true },
+      "/api/auth": { target: DEV_API_TARGET, changeOrigin: true },
       "/v1": { target: DEV_API_TARGET, changeOrigin: true },
     },
   },

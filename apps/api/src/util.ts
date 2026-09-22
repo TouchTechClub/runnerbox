@@ -1,5 +1,5 @@
 import type { Context, Env as HonoEnv } from "hono";
-import type { RepoRow, RunRow, UserRow } from "./db";
+import type { AuthUser, RepoRow, RunRow } from "./db";
 import type { ApiError, PublicRun, Repo, RunSummary, User } from "@runnerbox/shared";
 
 export function nowSeconds(): number {
@@ -77,13 +77,13 @@ export function apiError<E extends HonoEnv>(
 const toMs = (s: number) => s * 1000;
 const toMsOrNull = (s: number | null) => (s === null ? null : s * 1000);
 
-export function toPublicUser(row: UserRow): User {
+export function toPublicUser(user: AuthUser): User {
   return {
-    id: row.id,
-    githubUserId: row.github_user_id,
-    login: row.login,
-    avatarUrl: row.avatar_url ?? "",
-    createdAt: toMs(row.created_at),
+    id: user.id,
+    githubUserId: user.githubUserId ?? 0,
+    login: user.login,
+    avatarUrl: user.avatarUrl ?? "",
+    createdAt: user.createdAtMs,
   };
 }
 

@@ -1,5 +1,5 @@
 import { createRoute, redirect } from "@tanstack/react-router";
-import { api, API_URL } from "../lib/api";
+import { api } from "../lib/api";
 import { rootRoute } from "./root";
 
 function Landing() {
@@ -15,7 +15,11 @@ function Landing() {
         type="button"
         className="btn primary lg"
         onClick={() => {
-          window.location.href = `${API_URL}/auth/github`;
+          void api
+            .signInGithub()
+            .then((url) => {
+              window.location.href = url;
+            });
         }}
       >
         Sign in with GitHub

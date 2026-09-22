@@ -84,16 +84,9 @@ All repo operations use short-lived **installation tokens** (minted per-request 
 
 ## 4. Data model (D1)
 
+Auth tables are owned by **better-auth** (`user`, `session`, `account`, `verification`, `deviceCode` — migration `0002`). Our app tables reference `user.id` (TEXT):
+
 ```sql
-users (
-  id TEXT PK, github_user_id INTEGER UNIQUE, login TEXT,
-  avatar_url TEXT, created_at INTEGER
-)
-
-cli_tokens (
-  token_hash TEXT PK, user_id TEXT FK, created_at INTEGER, last_used_at INTEGER
-)
-
 installations (
   installation_id INTEGER PK, account_login TEXT, user_id TEXT FK,
   created_at INTEGER
@@ -119,25 +112,27 @@ runs (
 )
 ```
 
-**KV** (ephemeral, TTL-native):
-- `device_code:{code}` → CLI device-flow state (10 min TTL)
-- `web_session:{id}` → dashboard session cookie
+**KV** (ephemeral, TTL-native) — sessions & device codes live in better-auth's D1 tables, so KV is just:
 - `gh_inst_token:{installation_id}` → cached installation token
 - `ensure_lock:{user_id}` → idempotency for concurrent `runs/ensure`
+- `gh_check:{run_id}` → throttle for lazy GH status polling
 
 ---
 
 ## 5. API surface (Worker, Hono)
 
-### Auth
+### Auth — **better-auth** (mounted at `/api/auth/*`)
+Plugins: `deviceAuthorization` (RFC 8628, client_id `runnerbox-cli`, verificationUri → `${APP_URL}/device`) + `bearer` (CLI sends session token as Bearer). GitHub social provider stores `accessToken` + `accountId` in the `account` table — used for `/v1/installations`.
+
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/auth/github` | Start GitHub App OAuth (web) |
-| GET | `/auth/github/callback` | Exchange code → user row → session cookie |
-| POST | `/v1/cli/device` | CLI: mint `{code, verify_url, expires_in}` → KV |
-| GET | `/v1/cli/device/:code` | CLI polls → `pending` \| `{token}` |
-| POST | `/v1/cli/approve` | Web session approves device code (dashboard `/device` page) |
-| GET | `/v1/me` | Identity for both surfaces |
+| POST | `/api/auth/sign-in/social` | `{provider:"github", callbackURL}` → `{url}` (web) |
+| GET | `/api/auth/get-session` | cookie session check |
+| POST | `/api/auth/device/code` | CLI: `{client_id}` → `{device_code, user_code, verification_uri_complete, interval}` |
+| POST | `/api/auth/device/token` | CLI polls (JSON body) → `{access_token}` or `authorization_pending`/`slow_down`/`access_denied`/`expired_token` |
+| GET | `/api/auth/device?user_code=` | web: claims the code for the session |
+| POST | `/api/auth/device/approve` `/device/deny` | web: `{userCode}` (cookie session) |
+| GET | `/v1/me` | `{user: {id, githubUserId, login, avatarUrl}, repo}` |
 
 ### Webhooks
 | Method | Path | Notes |

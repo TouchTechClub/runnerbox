@@ -1,69 +1,44 @@
 import { createMiddleware } from "hono/factory";
-import { getCookie } from "hono/cookie";
 import type { Env } from "./env";
-import type { RepoRow, UserRow } from "./db";
-import { getRepoByTokenHash } from "./db";
+import type { AuthUser, RepoRow } from "./db";
+import { getGithubAccount, getRepoByTokenHash } from "./db";
 import { apiError, sha256Hex } from "./util";
+import { createAuth } from "./auth";
 
 export interface AppVariables {
-  user: UserRow;
+  user: AuthUser;
   repo: RepoRow;
 }
 
 export type AppContext = { Bindings: Env; Variables: AppVariables };
 
 /**
- * Authenticates either a CLI bearer token (sha256 lookup in cli_tokens) or the
- * web `rb_session` cookie (KV web_session:{id} → user_id).
+ * Authenticates the human user via better-auth: either the web session cookie
+ * or `Authorization: Bearer <access_token>` issued by the device flow (the
+ * bearer plugin rewrites it into the session cookie for getSession).
+ *
+ * Sets `user` as a normalized AuthUser — better-auth user.id plus the linked
+ * GitHub account's id/token (account row, providerId = 'github').
  */
 export const requireUser = createMiddleware<AppContext>(async (c, next) => {
-  const auth = c.req.header("Authorization");
-  let userId: string | null = null;
-
-  if (auth?.startsWith("Bearer ")) {
-    const token = auth.slice("Bearer ".length).trim();
-    if (token) {
-      const hash = await sha256Hex(token);
-      const row = await c.env.DB.prepare(
-        "SELECT user_id FROM cli_tokens WHERE token_hash = ?",
-      )
-        .bind(hash)
-        .first<{ user_id: string }>();
-      if (row) {
-        userId = row.user_id;
-        // touch last_used_at without blocking the response
-        c.executionCtx.waitUntil(
-          c.env.DB.prepare(
-            "UPDATE cli_tokens SET last_used_at = ? WHERE token_hash = ?",
-          )
-            .bind(Math.floor(Date.now() / 1000), hash)
-            .run(),
-        );
-      }
-    }
-  }
-
-  if (!userId) {
-    const sessionId = getCookie(c)["rb_session"];
-    if (sessionId) {
-      const session = await c.env.KV.get(`web_session:${sessionId}`, "json");
-      if (session && typeof session === "object") {
-        const s = session as { userId?: string };
-        if (typeof s.userId === "string") userId = s.userId;
-      }
-    }
-  }
-
-  if (!userId) {
+  const auth = createAuth(c.env);
+  const session = await auth.api
+    .getSession({ headers: c.req.raw.headers })
+    .catch(() => null);
+  if (!session) {
     return apiError(c, 401, "unauthorized", "Sign in via the web app or `runnerbox login`.");
   }
 
-  const user = await c.env.DB.prepare("SELECT * FROM users WHERE id = ?")
-    .bind(userId)
-    .first<UserRow>();
-  if (!user) {
-    return apiError(c, 401, "unauthorized", "User no longer exists.");
-  }
+  const account = await getGithubAccount(c.env.DB, session.user.id);
+  const u = session.user as typeof session.user & { login?: string };
+  const user: AuthUser = {
+    id: session.user.id,
+    githubUserId: account ? Number(account.accountId) : null,
+    login: u.login ?? u.name,
+    avatarUrl: session.user.image ?? null,
+    githubAccessToken: account?.accessToken ?? null,
+    createdAtMs: new Date(session.user.createdAt).getTime(),
+  };
   c.set("user", user);
   await next();
 });
@@ -71,6 +46,7 @@ export const requireUser = createMiddleware<AppContext>(async (c, next) => {
 /**
  * Authenticates the in-runner agent: Bearer RUNNERBOX_TOKEN → sha256 →
  * repos.runnerbox_token_hash. On success `repo` is set on the context.
+ * (Runner tokens are not user auth — unchanged from hand-rolled auth.)
  */
 export const requireRunnerToken = createMiddleware<AppContext>(async (c, next) => {
   const auth = c.req.header("Authorization");

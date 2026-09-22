@@ -48,11 +48,11 @@ interface InstallationReposResponse {
 
 repoRoutes.get("/v1/installations", async (c) => {
   const user = c.get("user");
-  if (!user.github_access_token) {
+  if (!user.githubAccessToken) {
     return apiError(c, 400, "no_github_token", "Re-login required: missing GitHub token.");
   }
   const installations = await gh<UserInstallationsResponse>(
-    user.github_access_token,
+    user.githubAccessToken,
     "/user/installations?per_page=100",
   );
   const repos: Array<{
@@ -65,7 +65,7 @@ repoRoutes.get("/v1/installations", async (c) => {
   }> = [];
   for (const inst of installations.installations) {
     const list = await gh<InstallationReposResponse>(
-      user.github_access_token,
+      user.githubAccessToken,
       `/user/installations/${inst.id}/repositories?per_page=100`,
     );
     for (const r of list.repositories) {

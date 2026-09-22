@@ -6,7 +6,7 @@ import {
   currentRun,
   ensureRun,
   me,
-  pollDeviceFlow,
+  pollDeviceToken,
   repairRepo,
   repoStatus,
   startDeviceFlow,
@@ -22,30 +22,45 @@ import { fmtCountdown, sleep, Spinner } from "./util.js";
 export async function cmdLogin(): Promise<void> {
   const flow = await startDeviceFlow();
 
-  console.log(`\nYour login code: ${pc.bold(pc.cyan(flow.userCode))}\n`);
-  const opened = await openInBrowser(flow.verifyUrl);
+  console.log(`\nYour login code: ${pc.bold(pc.cyan(flow.user_code))}\n`);
+  const verifyUrl = flow.verification_uri_complete ?? flow.verification_uri;
+  const opened = await openInBrowser(verifyUrl);
   console.log(
     opened
-      ? `Opened ${pc.underline(flow.verifyUrl)} — approve the code in your browser.`
-      : `Open ${pc.underline(flow.verifyUrl)} to approve the code.`,
+      ? `Opened ${pc.underline(verifyUrl)} — approve the code in your browser.`
+      : `Open ${pc.underline(verifyUrl)} to approve the code.`,
   );
 
   const spinner = new Spinner("Waiting for approval");
   spinner.begin();
-  const deadline = Date.now() + flow.expiresIn * 1000;
-  const interval = Math.max(1, flow.pollInterval) * 1000;
+  const deadline = Date.now() + flow.expires_in * 1000;
+  let interval = Math.max(1, flow.interval) * 1000;
 
   let token: string | null = null;
   while (Date.now() < deadline) {
     await sleep(interval);
-    const res = await pollDeviceFlow(flow.code);
-    if (res.status === "approved") {
+    const res = await pollDeviceToken(flow.device_code);
+    if (res.ok) {
       token = res.token;
       break;
     }
-    if (res.status === "expired") {
-      spinner.fail("Device code expired");
-      throw new CliError("Login code expired — run `runnerbox login` again.");
+    switch (res.error) {
+      case "authorization_pending":
+        continue;
+      case "slow_down":
+        interval += 5000;
+        continue;
+      case "access_denied":
+        spinner.fail("Denied");
+        throw new CliError("Login was denied in the browser.");
+      case "expired_token":
+        spinner.fail("Device code expired");
+        throw new CliError("Login code expired — run `runnerbox login` again.");
+      default:
+        spinner.fail("Login failed");
+        throw new CliError(
+          `Login failed: ${res.description ?? res.error}. Run \`runnerbox login\` again.`,
+        );
     }
   }
   if (!token) {

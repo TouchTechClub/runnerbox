@@ -1,7 +1,5 @@
 import type {
   ApiError,
-  DeviceFlowPollResponse,
-  DeviceFlowStartResponse,
   EnsureRunResponse,
   PublicRun,
   RepoStatusResponse,
@@ -93,13 +91,62 @@ async function parseErrorBody(res: Response): Promise<ApiError | null> {
 
 // ---- Endpoint helpers ----
 
-export const startDeviceFlow = () =>
-  api<DeviceFlowStartResponse>("/v1/cli/device", { method: "POST", auth: false });
+// Auth is better-auth. CLI login = RFC 8628 device flow against /api/auth/*.
+// These endpoints return RFC 8628 snake_case fields and JSON (NOT form-encoded).
 
-export const pollDeviceFlow = (code: string) =>
-  api<DeviceFlowPollResponse>(`/v1/cli/device/${encodeURIComponent(code)}`, {
+export const CLI_CLIENT_ID = "runnerbox-cli";
+
+export interface DeviceCodeResponse {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete?: string;
+  expires_in: number;
+  interval: number;
+}
+
+export type DeviceTokenResult =
+  | { ok: true; token: string }
+  | { ok: false; error: string; description?: string };
+
+export const startDeviceFlow = () =>
+  api<DeviceCodeResponse>("/api/auth/device/code", {
+    method: "POST",
     auth: false,
+    body: { client_id: CLI_CLIENT_ID },
   });
+
+/** Poll /api/auth/device/token. Error statuses (authorization_pending etc.)
+ *  come back as non-2xx JSON — decode them rather than throwing. */
+export async function pollDeviceToken(deviceCode: string): Promise<DeviceTokenResult> {
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl()}/api/auth/device/token`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+        device_code: deviceCode,
+        client_id: CLI_CLIENT_ID,
+      }),
+    });
+  } catch (err) {
+    throw new CliError(
+      `Could not reach ${apiBaseUrl()} — check your connection. (${(err as Error).message})`,
+    );
+  }
+  const body = (await res.json().catch(() => null)) as {
+    access_token?: string;
+    error?: string;
+    error_description?: string;
+  } | null;
+  if (res.ok && body?.access_token) return { ok: true, token: body.access_token };
+  return {
+    ok: false,
+    error: body?.error ?? `http_${res.status}`,
+    description: body?.error_description,
+  };
+}
 
 export const me = async (token?: string): Promise<User> =>
   (await api<{ user: User }>("/v1/me", { token })).user;

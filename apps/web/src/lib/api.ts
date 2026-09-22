@@ -206,6 +206,20 @@ export const api = {
     return raw as User;
   },
 
+  /** better-auth GitHub social sign-in → returns the GitHub authorize URL. */
+  signInGithub: async (): Promise<string> => {
+    const res = await post<{ url: string }>("/api/auth/sign-in/social", {
+      provider: "github",
+      callbackURL: `${window.location.origin}/dashboard`,
+    });
+    return res.url;
+  },
+
+  /** better-auth device flow: claim a user_code for this session (required
+   *  before approve/deny). Returns the code's metadata. */
+  deviceVerify: async (userCode: string): Promise<unknown> =>
+    get(`/api/auth/device?user_code=${encodeURIComponent(userCode)}`),
+
   installations: async (): Promise<InstallableRepo[]> =>
     extractRepos(await get<unknown>("/v1/installations")),
 
@@ -244,5 +258,8 @@ export const api = {
   stopRun: (runId: string) => post<{ ok: boolean }>(`/v1/runs/${runId}/stop`),
 
   approveCli: (userCode: string) =>
-    post<CliApproveResponse>("/v1/cli/approve", { userCode }),
+    post<CliApproveResponse>("/api/auth/device/approve", { userCode }),
+
+  denyCli: (userCode: string) =>
+    post<CliApproveResponse>("/api/auth/device/deny", { userCode }),
 };

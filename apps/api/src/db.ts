@@ -1,21 +1,27 @@
 import type { RepoState, RunState } from "@runnerbox/shared";
 
-/** Row shapes mirror migrations/0001_init.sql exactly (snake_case columns). */
+/** Row shapes mirror migrations/*.sql exactly (snake_case for app tables). */
 
-export interface UserRow {
+/**
+ * The authenticated caller, normalized off the better-auth session `user`
+ * plus their linked GitHub `account` row. `user.id` is better-auth's TEXT id;
+ * `repos.user_id` / `runs.user_id` / `installations.user_id` all point at it.
+ */
+export interface AuthUser {
   id: string;
-  github_user_id: number;
+  githubUserId: number | null;
   login: string;
-  avatar_url: string | null;
-  github_access_token: string | null;
-  created_at: number;
+  avatarUrl: string | null;
+  /** OAuth access token from account.accessToken (providerId = 'github'). */
+  githubAccessToken: string | null;
+  /** better-auth user.createdAt, converted to epoch milliseconds. */
+  createdAtMs: number;
 }
 
-export interface CliTokenRow {
-  token_hash: string;
-  user_id: string;
-  created_at: number;
-  last_used_at: number | null;
+/** better-auth `account` row (camelCase columns, see 0002_better_auth.sql). */
+export interface GithubAccountRow {
+  accountId: string;
+  accessToken: string | null;
 }
 
 export interface InstallationRow {
@@ -66,6 +72,25 @@ export const ACTIVE_RUN_STATES: readonly RunState[] = [
 
 export function isTerminal(state: RunState): boolean {
   return TERMINAL_RUN_STATES.includes(state);
+}
+
+/**
+ * The GitHub OAuth account linked to a better-auth user. `accountId` is the
+ * GitHub user id (TEXT); `accessToken` is the user OAuth token needed by
+ * GET /user/installations (repo picker).
+ */
+export async function getGithubAccount(
+  db: D1Database,
+  userId: string,
+): Promise<GithubAccountRow | null> {
+  return db
+    .prepare(
+      `SELECT accountId, accessToken FROM account
+       WHERE userId = ? AND providerId = 'github'
+       ORDER BY createdAt DESC LIMIT 1`,
+    )
+    .bind(userId)
+    .first<GithubAccountRow>();
 }
 
 export async function getRepoForUser(

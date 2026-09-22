@@ -7,8 +7,13 @@ export interface Env {
   /** PEM-encoded RSA private key for the GitHub App (secret). */
   GITHUB_APP_PRIVATE_KEY: string;
   GITHUB_WEBHOOK_SECRET: string;
-  GITHUB_OAUTH_CLIENT_ID: string;
-  GITHUB_OAUTH_CLIENT_SECRET: string;
-  /** Web app origin — used for OAuth redirects and CLI device verify URLs. */
+  /** OAuth credentials for the GitHub App's "identify users" flow (better-auth github provider). */
+  GITHUB_CLIENT_ID: string;
+  GITHUB_CLIENT_SECRET: string;
+  /** Secret used by better-auth to sign session tokens/cookies. */
+  BETTER_AUTH_SECRET: string;
+  /** Public origin of this API — better-auth baseURL (OAuth callback root). */
+  API_URL: string;
+  /** Web app origin — used for CORS, OAuth redirects and CLI device verify URLs. */
   APP_URL: string;
 }

@@ -8,13 +8,17 @@ compatibility_flags = ["nodejs_compat"]
 # ---- Non-secret config (per-environment overrides go in [env.*] blocks) ----
 [vars]
 APP_URL = "http://localhost:3000"
+# Public origin of this API — better-auth baseURL (OAuth callbacks land on
+# {API_URL}/api/auth/callback/github).
+API_URL = "http://localhost:8787"
 GITHUB_APP_ID = ""
-GITHUB_OAUTH_CLIENT_ID = ""
+GITHUB_CLIENT_ID = ""
 
 # Secrets (set via `wrangler secret put <NAME>` or .dev.vars locally):
-#   GITHUB_APP_PRIVATE_KEY      — PEM, RSA private key for the GitHub App
-#   GITHUB_WEBHOOK_SECRET       — webhook signing secret
-#   GITHUB_OAUTH_CLIENT_SECRET  — App OAuth client secret
+#   GITHUB_APP_PRIVATE_KEY   — PEM, RSA private key for the GitHub App
+#   GITHUB_WEBHOOK_SECRET    — webhook signing secret
+#   GITHUB_CLIENT_SECRET     — App OAuth client secret (better-auth github provider)
+#   BETTER_AUTH_SECRET       — session token/cookie signing secret (min 32 chars)
 
 [[d1_databases]]
 binding = "DB"
