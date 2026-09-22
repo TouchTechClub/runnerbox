@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { api, ApiError } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { authClient } from "../lib/auth-client";
 import { Spinner } from "../components/ui";
 import { rootRoute } from "./root";
 
@@ -13,32 +13,53 @@ function DevicePage() {
   const { user_code } = deviceRoute.useSearch();
   const [phase, setPhase] = useState<Phase>(user_code ? "claiming" : "error");
   const [error, setError] = useState<string | null>(null);
+  const claimed = useRef(false);
 
-  // Step 1: GET /api/auth/device claims the pending code for this session —
-  // only this session can then approve or deny it.
+  // Step 1: GET /device claims the pending code for this session — only this
+  // session can then approve or deny it.
   const claim = useMutation({
-    mutationFn: (code: string) => api.deviceVerify(code),
-    onSuccess: () => setPhase("confirm"),
+    mutationFn: (code: string) => authClient.device({ query: { user_code: code } }),
+    onSuccess: (res) => {
+      if (res.error) {
+        setError(res.error.error_description ?? res.error.error);
+        setPhase("error");
+      } else {
+        setPhase("confirm");
+      }
+    },
     onError: (e) => {
-      setError(e instanceof ApiError ? e.message : "Invalid or expired code");
+      setError(e instanceof Error ? e.message : "Invalid or expired code");
       setPhase("error");
     },
   });
 
   const decide = useMutation({
     mutationFn: ({ code, approve }: { code: string; approve: boolean }) =>
-      approve ? api.approveCli(code) : api.denyCli(code),
-    onSuccess: (_d, v) => setPhase(v.approve ? "done" : "denied"),
+      approve
+        ? authClient.device.approve({ userCode: code })
+        : authClient.device.deny({ userCode: code }),
+    onSuccess: (res, v) => {
+      if (res.error) {
+        setError(res.error.error_description ?? res.error.error);
+        setPhase("error");
+      } else {
+        setPhase(v.approve ? "done" : "denied");
+      }
+    },
     onError: (e) => {
-      setError(e instanceof ApiError ? e.message : "Request failed");
+      setError(e instanceof Error ? e.message : "Request failed");
       setPhase("error");
     },
   });
 
-  // Auto-claim on mount when a code arrived via ?user_code=
-  if (phase === "claiming" && user_code && !claim.isPending && !claim.isSuccess && !claim.isError) {
-    claim.mutate(user_code);
-  }
+  // Auto-claim on mount when a code arrived via ?user_code= (StrictMode-safe).
+  useEffect(() => {
+    if (user_code && !claimed.current) {
+      claimed.current = true;
+      claim.mutate(user_code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user_code]);
 
   return (
     <div className="card">
@@ -46,21 +67,17 @@ function DevicePage() {
       <div className="card-body">
         {!user_code ? (
           <div className="notice error">
-            Missing device code. Run <code>runnerbox login</code> again and open the link
-            it prints.
+            Missing device code. Run <code>runnerbox login</code> again and open the link it prints.
           </div>
         ) : phase === "claiming" ? (
           <Spinner label={`verifying code ${user_code}…`} />
         ) : phase === "confirm" ? (
           <>
-            <p>
-              A device is asking to sign in to your RunnerBox account.
-            </p>
+            <p>A device is asking to sign in to your RunnerBox account.</p>
             <p className="mono big-code">{user_code}</p>
             <p className="muted small">
-              Only approve if <strong>you</strong> just ran{" "}
-              <code>runnerbox login</code> and this code matches your terminal. Never
-              approve a code someone else gave you.
+              Only approve if <strong>you</strong> just ran <code>runnerbox login</code> and this
+              code matches your terminal. Never approve a code someone else gave you.
             </p>
             <div className="gap mt">
               <button

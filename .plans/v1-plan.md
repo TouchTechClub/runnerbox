@@ -2,7 +2,7 @@
 
 **One-liner:** Free on-demand iOS simulators & Android emulators running on the user's own GitHub Actions minutes, exposed to their local machine as an `agent-device` remote proxy.
 
-**Product shape:** A `macos-latest` GitHub Actions job in the *user's* repo boots `agent-device proxy` + a Cloudflare quick tunnel. The tunnel URL and daemon token are registered to our backend (secret-authenticated, never in logs) and handed to the user's CLI. The user connects with `agent-device connect proxy` and drives sims/emulators until the job times out (~6h).
+**Product shape:** A `macos-latest` GitHub Actions job in the _user's_ repo boots `agent-device proxy` + a Cloudflare quick tunnel. The tunnel URL and daemon token are registered to our backend (secret-authenticated, never in logs) and handed to the user's CLI. The user connects with `agent-device connect proxy` and drives sims/emulators until the job times out (~6h).
 
 ```
 ┌──────────────┐   HTTPS    ┌───────────────────┐   REST (installation token)  ┌──────────────┐
@@ -25,28 +25,28 @@
 
 ## 1. Key design decisions (locked)
 
-| # | Decision | Resolution |
-|---|----------|------------|
-| 1 | Device surface | `agent-device proxy` over Cloudflare quick tunnel — no custom viewer, no streaming server |
-| 2 | Platforms | iOS sim + Android emulator, both on `macos-latest`. Devices multiplex into the same run; `--new` CLI flag forces a fresh run |
-| 3 | Repo access | GitHub App (`contents:write`, `secrets:write`, `actions:write`, `metadata:read`) — no broad OAuth token |
-| 4 | Secrets | One long-lived repo secret `RUNNERBOX_TOKEN`; per-run daemon token minted in-runner, sent over TLS, never logged |
-| 5 | Repo visibility | Public + private both allowed; dashboard warns about 10× macOS minute multiplier on private repos |
-| 6 | Stack | Monorepo: API = CF Workers + D1 + KV · CLI = TS on npm · Web = TanStack · agent-runner = Bun-compiled binary |
-| 7 | CLI auth | Device flow against our backend → same GitHub identity as web |
-| 8 | Runner delivery | Composite action `runnerbox/runner@v1` → downloads pinned release tarball (binary + cloudflared). Graduate to real published action later |
-| 9 | Abuse | No rate limits on our side (compute is the user's own GH quota). 1 GitHub account + 1 repo per user |
-| 10 | Tamper check | Skipped. Run correlation by `GITHUB_RUN_ID` already prevents foreign runs from reaching a user |
-| 11 | Session model | Run-centric. No sessions table — a "session" is just connect info to a live run. `runs` is the only state machine |
-| 12 | Run status | `workflow_run` webhooks primary + lazy poll fallback |
-| 13 | Workflow delivery | Direct commit to default branch; PR fallback on protected branches |
-| 14 | Leases | Native agent-device semantics (5-min inactivity lease expiry; re-`open` is cheap) |
-| 15 | Lifecycle | 15-min idle exit · 5h45m hard exit (clean cleanup before GH's 6h kill) · `runnerbox stop` → GH cancel API |
-| 16 | Repo switching | Allowed; clean uninstall from old repo (delete file + secret, cancel runs) |
-| 17 | Onboarding | Web-first (App install requires browser anyway); `runnerbox init` deep-links to dashboard |
-| 18 | Repair | `runnerbox repair` + dashboard button: re-commit canonical workflow, rotate secret, verify installation |
-| 19 | Devices/run | Soft cap 3 (advisory via heartbeat-reported count) |
-| 20 | Correlation | Backend dispatches → polls `listWorkflowRuns` → binds `run_id` to pending run row; agent registers with `GITHUB_RUN_ID` + token |
+| #   | Decision          | Resolution                                                                                                                                |
+| --- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Device surface    | `agent-device proxy` over Cloudflare quick tunnel — no custom viewer, no streaming server                                                 |
+| 2   | Platforms         | iOS sim + Android emulator, both on `macos-latest`. Devices multiplex into the same run; `--new` CLI flag forces a fresh run              |
+| 3   | Repo access       | GitHub App (`contents:write`, `secrets:write`, `actions:write`, `metadata:read`) — no broad OAuth token                                   |
+| 4   | Secrets           | One long-lived repo secret `RUNNERBOX_TOKEN`; per-run daemon token minted in-runner, sent over TLS, never logged                          |
+| 5   | Repo visibility   | Public + private both allowed; dashboard warns about 10× macOS minute multiplier on private repos                                         |
+| 6   | Stack             | Monorepo: API = CF Workers + D1 + KV · CLI = TS on npm · Web = TanStack · agent-runner = Bun-compiled binary                              |
+| 7   | CLI auth          | Device flow against our backend → same GitHub identity as web                                                                             |
+| 8   | Runner delivery   | Composite action `runnerbox/runner@v1` → downloads pinned release tarball (binary + cloudflared). Graduate to real published action later |
+| 9   | Abuse             | No rate limits on our side (compute is the user's own GH quota). 1 GitHub account + 1 repo per user                                       |
+| 10  | Tamper check      | Skipped. Run correlation by `GITHUB_RUN_ID` already prevents foreign runs from reaching a user                                            |
+| 11  | Session model     | Run-centric. No sessions table — a "session" is just connect info to a live run. `runs` is the only state machine                         |
+| 12  | Run status        | `workflow_run` webhooks primary + lazy poll fallback                                                                                      |
+| 13  | Workflow delivery | Direct commit to default branch; PR fallback on protected branches                                                                        |
+| 14  | Leases            | Native agent-device semantics (5-min inactivity lease expiry; re-`open` is cheap)                                                         |
+| 15  | Lifecycle         | 15-min idle exit · 5h45m hard exit (clean cleanup before GH's 6h kill) · `runnerbox stop` → GH cancel API                                 |
+| 16  | Repo switching    | Allowed; clean uninstall from old repo (delete file + secret, cancel runs)                                                                |
+| 17  | Onboarding        | Web-first (App install requires browser anyway); `runnerbox init` deep-links to dashboard                                                 |
+| 18  | Repair            | `runnerbox repair` + dashboard button: re-commit canonical workflow, rotate secret, verify installation                                   |
+| 19  | Devices/run       | Soft cap 3 (advisory via heartbeat-reported count)                                                                                        |
+| 20  | Correlation       | Backend dispatches → polls `listWorkflowRuns` → binds `run_id` to pending run row; agent registers with `GITHUB_RUN_ID` + token           |
 
 ---
 
@@ -113,6 +113,7 @@ runs (
 ```
 
 **KV** (ephemeral, TTL-native) — sessions & device codes live in better-auth's D1 tables, so KV is just:
+
 - `gh_inst_token:{installation_id}` → cached installation token
 - `ensure_lock:{user_id}` → idempotency for concurrent `runs/ensure`
 - `gh_check:{run_id}` → throttle for lazy GH status polling
@@ -122,43 +123,48 @@ runs (
 ## 5. API surface (Worker, Hono)
 
 ### Auth — **better-auth** (mounted at `/api/auth/*`)
+
 Plugins: `deviceAuthorization` (RFC 8628, client_id `runnerbox-cli`, verificationUri → `${APP_URL}/device`) + `bearer` (CLI sends session token as Bearer). GitHub social provider stores `accessToken` + `accountId` in the `account` table — used for `/v1/installations`.
 
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/api/auth/sign-in/social` | `{provider:"github", callbackURL}` → `{url}` (web) |
-| GET | `/api/auth/get-session` | cookie session check |
-| POST | `/api/auth/device/code` | CLI: `{client_id}` → `{device_code, user_code, verification_uri_complete, interval}` |
-| POST | `/api/auth/device/token` | CLI polls (JSON body) → `{access_token}` or `authorization_pending`/`slow_down`/`access_denied`/`expired_token` |
-| GET | `/api/auth/device?user_code=` | web: claims the code for the session |
-| POST | `/api/auth/device/approve` `/device/deny` | web: `{userCode}` (cookie session) |
-| GET | `/v1/me` | `{user: {id, githubUserId, login, avatarUrl}, repo}` |
+| Method | Path                                      | Notes                                                                                                           |
+| ------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/auth/sign-in/social`                | `{provider:"github", callbackURL}` → `{url}` (web)                                                              |
+| GET    | `/api/auth/get-session`                   | cookie session check                                                                                            |
+| POST   | `/api/auth/device/code`                   | CLI: `{client_id}` → `{device_code, user_code, verification_uri_complete, interval}`                            |
+| POST   | `/api/auth/device/token`                  | CLI polls (JSON body) → `{access_token}` or `authorization_pending`/`slow_down`/`access_denied`/`expired_token` |
+| GET    | `/api/auth/device?user_code=`             | web: claims the code for the session                                                                            |
+| POST   | `/api/auth/device/approve` `/device/deny` | web: `{userCode}` (cookie session)                                                                              |
+| GET    | `/v1/me`                                  | `{user: {id, githubUserId, login, avatarUrl}, repo}`                                                            |
 
 ### Webhooks
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/webhooks/github` | Verify `X-Hub-Signature-256`. Handle `installation` (created/deleted/suspend), `installation_repositories`, `workflow_run` (queued/in_progress/completed → update `runs.state`) |
+
+| Method | Path               | Notes                                                                                                                                                                           |
+| ------ | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/webhooks/github` | Verify `X-Hub-Signature-256`. Handle `installation` (created/deleted/suspend), `installation_repositories`, `workflow_run` (queued/in_progress/completed → update `runs.state`) |
 
 ### Repo
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/v1/installations` | Repos reachable via user's installations (for picker) |
-| POST | `/v1/repo/connect` | `{repo_id}` → commit workflow + write secret (PR fallback → `pending_pr`) |
-| GET | `/v1/repo/status` | State incl. private-repo cost warning flag |
-| POST | `/v1/repo/repair` | Re-commit canonical workflow + rotate `RUNNERBOX_TOKEN` + re-verify installation |
-| POST | `/v1/repo/disconnect` | Delete workflow file + secret, cancel live run, free the slot |
+
+| Method | Path                  | Notes                                                                            |
+| ------ | --------------------- | -------------------------------------------------------------------------------- |
+| GET    | `/v1/installations`   | Repos reachable via user's installations (for picker)                            |
+| POST   | `/v1/repo/connect`    | `{repo_id}` → commit workflow + write secret (PR fallback → `pending_pr`)        |
+| GET    | `/v1/repo/status`     | State incl. private-repo cost warning flag                                       |
+| POST   | `/v1/repo/repair`     | Re-commit canonical workflow + rotate `RUNNERBOX_TOKEN` + re-verify installation |
+| POST   | `/v1/repo/disconnect` | Delete workflow file + secret, cancel live run, free the slot                    |
 
 ### Runs
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| POST | `/v1/runs/ensure` | user | `{new?: bool}` → `live` connect info \| `dispatching`/`booting` state. Dedupes via `ensure_lock` |
-| GET | `/v1/runs/current` | user | Live/dispatching run + `active_devices` + `expires_at` |
-| POST | `/v1/runs/:id/stop` | user | `POST /repos/{}/actions/runs/{}/cancel` via installation token |
-| POST | `/v1/runs/register` | `Bearer RUNNERBOX_TOKEN` | `{gh_run_id, tunnel_url, daemon_token, versions}` — validates run_id ∈ dispatched set for this repo |
-| POST | `/v1/runs/heartbeat` | `Bearer RUNNERBOX_TOKEN` | `{gh_run_id, active_devices, android_ready}` every 60s; missing heartbeats >3min → reap |
-| POST | `/v1/runs/deregister` | `Bearer RUNNERBOX_TOKEN` | Clean shutdown path |
+
+| Method | Path                  | Auth                     | Notes                                                                                               |
+| ------ | --------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| POST   | `/v1/runs/ensure`     | user                     | `{new?: bool}` → `live` connect info \| `dispatching`/`booting` state. Dedupes via `ensure_lock`    |
+| GET    | `/v1/runs/current`    | user                     | Live/dispatching run + `active_devices` + `expires_at`                                              |
+| POST   | `/v1/runs/:id/stop`   | user                     | `POST /repos/{}/actions/runs/{}/cancel` via installation token                                      |
+| POST   | `/v1/runs/register`   | `Bearer RUNNERBOX_TOKEN` | `{gh_run_id, tunnel_url, daemon_token, versions}` — validates run_id ∈ dispatched set for this repo |
+| POST   | `/v1/runs/heartbeat`  | `Bearer RUNNERBOX_TOKEN` | `{gh_run_id, active_devices, android_ready}` every 60s; missing heartbeats >3min → reap             |
+| POST   | `/v1/runs/deregister` | `Bearer RUNNERBOX_TOKEN` | Clean shutdown path                                                                                 |
 
 **`ensure` logic:**
+
 1. Live run & `!new` → return `{state: "live", tunnel_url, daemon_token, expires_at}` (reject if `active_devices >= 3` → tell CLI to suggest `--new`)
 2. Run in `dispatching|queued|booting` & `!new` → return `{state}`
 3. Else → `POST .../workflows/runnerbox.yml/dispatches` (ref = default branch) → poll `listWorkflowRuns?event=workflow_dispatch&created>=t` → bind `gh_run_id` → row `dispatching`
@@ -220,6 +226,7 @@ Tarball is sha256-verified — supply-chain hygiene for code executing in users'
 Single `bun build --compile` binary, darwin-arm64 (`macos-latest` = Apple Silicon).
 
 Boot sequence:
+
 1. Read env: `RUNNERBOX_TOKEN`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `RUNNERBOX_API_URL`. Missing token → exit 1 with `::error::` annotation.
 2. Provision (parallel where possible):
    - `npm i -g agent-device@<pinned>` (Node exists in toolcache)
@@ -253,6 +260,7 @@ runnerbox logout
 ```
 
 **Connect UX on `sim` (decided: auto-connect with printed fallback):**
+
 - If `agent-device` binary found locally: run `agent-device connect proxy --daemon-base-url <tunnel>/agent-device`, then write `daemonAuthToken` into the remote config profile so every subsequent `agent-device` command is authenticated without env vars.
 - Always print the manual equivalent as fallback:
 
@@ -272,21 +280,21 @@ agent-device open <app> --platform ios      # or --platform android
 
 Dashboard only — no device viewer in v1.
 
-| Route | Purpose |
-|---|---|
-| `/` | Landing + "Sign in with GitHub" |
-| `/onboarding` | Install App → pick repo → progress: `committing workflow → setting secret → done` → shows `npx runnerbox login && runnerbox sim` |
-| `/device` | Approve CLI device code (`runnerbox login` flow) |
-| `/dashboard` | Repo card (full_name, private ⚠️ cost warning, state, repair/disconnect) · Live run card (state, uptime, devices, expires_at, copy-connect-command with token reveal) · Run history |
+| Route         | Purpose                                                                                                                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`           | Landing + "Sign in with GitHub"                                                                                                                                                     |
+| `/onboarding` | Install App → pick repo → progress: `committing workflow → setting secret → done` → shows `npx runnerbox login && runnerbox sim`                                                    |
+| `/device`     | Approve CLI device code (`runnerbox login` flow)                                                                                                                                    |
+| `/dashboard`  | Repo card (full_name, private ⚠️ cost warning, state, repair/disconnect) · Live run card (state, uptime, devices, expires_at, copy-connect-command with token reveal) · Run history |
 
 ---
 
 ## 10. Security model
 
 - **In-runner auth:** `RUNNERBOX_TOKEN` repo secret → masked by GH automatically. Registration payload carries it as `Authorization` header over TLS — body (tunnel URL, daemon token) is never in the workflow file or logs.
-- **Run binding:** register rejected unless `gh_run_id` is a run *we dispatched* for that repo → manual/tampered dispatches produce a run that exists but is unreachable: our API never hands out its tunnel/token.
+- **Run binding:** register rejected unless `gh_run_id` is a run _we dispatched_ for that repo → manual/tampered dispatches produce a run that exists but is unreachable: our API never hands out its tunnel/token.
 - **Tunnel secrecy:** `*.trycloudflare.com` subdomain is unguessable; every proxied command additionally requires the per-run `daemon_token` bearer. Two independent layers.
-- **Token leak scope:** if `RUNNERBOX_TOKEN` leaks (e.g., malicious collaborator), attacker can only register fake tunnels against *that repo's* runs → `runnerbox repair` rotates it.
+- **Token leak scope:** if `RUNNERBOX_TOKEN` leaks (e.g., malicious collaborator), attacker can only register fake tunnels against _that repo's_ runs → `runnerbox repair` rotates it.
 - **Webhook:** `X-Hub-Signature-256` verified against App webhook secret.
 - **Supply chain:** agent tarball sha256-pinned in the composite action; `agent-device` + `cloudflared` versions pinned in release manifest.
 - **Installation tokens** are short-lived (1h), minted per-operation, cached in KV.
@@ -295,18 +303,18 @@ Dashboard only — no device viewer in v1.
 
 ## 11. Edge cases & failure paths
 
-| Case | Handling |
-|---|---|
-| Actions disabled on repo / dispatch 404-410 | `repo.state = needs_repair`, dashboard+CLI message "enable Actions" |
-| Protected default branch | Commit → 403 → open PR (`pending_pr`), dashboard polls contents API until file lands on default branch |
-| `workflow_run` webhook dropped | `ensure`/`current` lazily polls `getWorkflowRun` when state is stale (>90s in dispatching) |
-| Run dies before registering | `workflow_run completed` webhook → `failed`; next `sim` re-dispatches |
-| Run killed hard (GH eviction) | Heartbeat gap >3 min → reap row |
-| Registration arrives for canceled run | Rejected (state ∉ dispatching/booting) |
-| Repo renamed/transferred | `installation_repositories`/`installation` webhook → `needs_repair` |
-| App uninstalled | `installation deleted` → `uninstalled`; CLI + dashboard prompt reconnect |
-| Two CLIs race `ensure` | `ensure_lock` KV key + conditional dispatch |
-| Android requested before image ready | Heartbeat `android_ready=false` surfaced in `ps`; `agent-device open` just waits/retries client-side |
+| Case                                        | Handling                                                                                               |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Actions disabled on repo / dispatch 404-410 | `repo.state = needs_repair`, dashboard+CLI message "enable Actions"                                    |
+| Protected default branch                    | Commit → 403 → open PR (`pending_pr`), dashboard polls contents API until file lands on default branch |
+| `workflow_run` webhook dropped              | `ensure`/`current` lazily polls `getWorkflowRun` when state is stale (>90s in dispatching)             |
+| Run dies before registering                 | `workflow_run completed` webhook → `failed`; next `sim` re-dispatches                                  |
+| Run killed hard (GH eviction)               | Heartbeat gap >3 min → reap row                                                                        |
+| Registration arrives for canceled run       | Rejected (state ∉ dispatching/booting)                                                                 |
+| Repo renamed/transferred                    | `installation_repositories`/`installation` webhook → `needs_repair`                                    |
+| App uninstalled                             | `installation deleted` → `uninstalled`; CLI + dashboard prompt reconnect                               |
+| Two CLIs race `ensure`                      | `ensure_lock` KV key + conditional dispatch                                                            |
+| Android requested before image ready        | Heartbeat `android_ready=false` surfaced in `ps`; `agent-device open` just waits/retries client-side   |
 
 ---
 
@@ -320,13 +328,13 @@ Dashboard only — no device viewer in v1.
 
 ## 13. Milestones
 
-| # | Milestone | Done means |
-|---|---|---|
-| M0 | Scaffold | Monorepo, wrangler/pages/npm configs, GitHub App registered (dev instance), shared types package |
-| M1 | Auth + repo connect | Web OAuth, CLI device flow, App install → commit workflow + secret on a test repo (incl. PR fallback path) |
-| M2 | Runner bring-up | Composite action repo, release pipeline for agent binary, agent does proxy+tunnel+register on a manual test dispatch |
-| M3 | Session loop e2e | `runs/ensure` → dispatch → run_id bind → register → CLI `sim` prints working connect line → `agent-device open` on iOS works remotely |
-| M4 | Lifecycle + Android | Idle/hard exits, `stop`, heartbeats, `workflow_run` states, Android AVD background provisioning, `ps` device reporting |
-| M5 | Ship | Repair/disconnect, dashboard polish, private-repo warning, npm publish, Pages deploy, README/docs |
+| #   | Milestone           | Done means                                                                                                                            |
+| --- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| M0  | Scaffold            | Monorepo, wrangler/pages/npm configs, GitHub App registered (dev instance), shared types package                                      |
+| M1  | Auth + repo connect | Web OAuth, CLI device flow, App install → commit workflow + secret on a test repo (incl. PR fallback path)                            |
+| M2  | Runner bring-up     | Composite action repo, release pipeline for agent binary, agent does proxy+tunnel+register on a manual test dispatch                  |
+| M3  | Session loop e2e    | `runs/ensure` → dispatch → run_id bind → register → CLI `sim` prints working connect line → `agent-device open` on iOS works remotely |
+| M4  | Lifecycle + Android | Idle/hard exits, `stop`, heartbeats, `workflow_run` states, Android AVD background provisioning, `ps` device reporting                |
+| M5  | Ship                | Repair/disconnect, dashboard polish, private-repo warning, npm publish, Pages deploy, README/docs                                     |
 
 **Known open items (not v1 blockers):** domain name registration (`api.runnerbox.dev` placeholder), npm package name availability (`runnerbox` vs `runnerbox-cli`), Android first-boot latency UX (image download ~2–3min), `--shell` eval flag, real published Marketplace action.

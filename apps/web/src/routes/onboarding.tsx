@@ -21,10 +21,7 @@ function StepBar({ step }: { step: Step }) {
   return (
     <div className="steps">
       {STEP_ORDER.map((s, i) => (
-        <div
-          key={s}
-          className={`step ${i === activeIdx ? "active" : i < activeIdx ? "done" : ""}`}
-        >
+        <div key={s} className={`step ${i === activeIdx ? "active" : i < activeIdx ? "done" : ""}`}>
           {STEP_LABELS[s]}
         </div>
       ))}
@@ -77,8 +74,8 @@ function InstallAndPick({
           {repos.length === 0 ? (
             <>
               <p className="muted">
-                RunnerBox needs the GitHub App installed on a repo you own. Install it,
-                grant access to a repo, and it will appear here automatically.
+                RunnerBox needs the GitHub App installed on a repo you own. Install it, grant access
+                to a repo, and it will appear here automatically.
               </p>
               <a className="btn primary mt" href={GITHUB_APP_INSTALL_URL}>
                 Install the RunnerBox GitHub App
@@ -89,9 +86,7 @@ function InstallAndPick({
             </>
           ) : (
             <>
-              <p className="muted">
-                Pick the repo RunnerBox should run in. One repo per account.
-              </p>
+              <p className="muted">Pick the repo RunnerBox should run in. One repo per account.</p>
               <div className="repo-list">
                 {repos.map((r) => (
                   <button
@@ -123,9 +118,8 @@ function InstallAndPick({
                 </div>
               ) : null}
               <p className="small faint mt">
-                Missing a repo?{" "}
-                <a href={GITHUB_APP_INSTALL_URL}>Update the app installation</a> — it will
-                show up here within a few seconds.
+                Missing a repo? <a href={GITHUB_APP_INSTALL_URL}>Update the app installation</a> —
+                it will show up here within a few seconds.
               </p>
             </>
           )}
@@ -166,8 +160,8 @@ function Progress() {
 
           {repo.state === "pending_pr" ? (
             <div className="notice warn mt">
-              Your default branch is protected, so RunnerBox opened a pull request with
-              the workflow file.{" "}
+              Your default branch is protected, so RunnerBox opened a pull request with the workflow
+              file.{" "}
               {repo.prUrl ? (
                 <a href={repo.prUrl}>Merge this PR to finish setup</a>
               ) : (
@@ -183,8 +177,8 @@ function Progress() {
           {repo.state === "ok" ? (
             <>
               <div className="notice info mt">
-                ✅ Connected. The <code>runnerbox.yml</code> workflow is on your default
-                branch and the <code>RUNNERBOX_TOKEN</code> secret is set.
+                ✅ Connected. The <code>runnerbox.yml</code> workflow is on your default branch and
+                the <code>RUNNERBOX_TOKEN</code> secret is set.
               </div>
               <p className="mt muted">Get a simulator from your terminal:</p>
               <div className="term">
@@ -205,8 +199,8 @@ function Progress() {
 
           {repo.state === "needs_repair" || repo.state === "uninstalled" ? (
             <div className="notice error mt">
-              Setup hit a problem (repo state: <code>{repo.state}</code>). Try again from
-              the dashboard, or re-run onboarding.
+              Setup hit a problem (repo state: <code>{repo.state}</code>). Try again from the
+              dashboard, or re-run onboarding.
             </div>
           ) : null}
         </div>
@@ -235,13 +229,7 @@ function Onboarding() {
     return <Progress />;
   }
 
-  return (
-    <InstallAndPick
-      step={step}
-      connecting={false}
-      onPicked={() => setStep("progress")}
-    />
-  );
+  return <InstallAndPick step={step} connecting={false} onPicked={() => setStep("progress")} />;
 }
 
 export const onboardingRoute = createRoute({

@@ -1,6 +1,9 @@
-import type { RepoState, RunState } from "@runnerbox/shared";
+import type { Database } from "@runnerbox/db";
+import { schema } from "@runnerbox/db";
+import type { RunState } from "@runnerbox/shared";
+import { and, desc, eq, notInArray } from "drizzle-orm";
 
-/** Row shapes mirror migrations/*.sql exactly (snake_case for app tables). */
+const { account, repos, runs, installations } = schema;
 
 /**
  * The authenticated caller, normalized off the better-auth session `user`
@@ -14,61 +17,23 @@ export interface AuthUser {
   avatarUrl: string | null;
   /** OAuth access token from account.accessToken (providerId = 'github'). */
   githubAccessToken: string | null;
-  /** better-auth user.createdAt, converted to epoch milliseconds. */
+  /** better-auth user.createdAt, epoch milliseconds. */
   createdAtMs: number;
 }
 
-/** better-auth `account` row (camelCase columns, see 0002_better_auth.sql). */
+/** Row shapes are inferred from the drizzle schema (app tables are snake_case). */
+export type InstallationRow = typeof installations.$inferSelect;
+export type RepoRow = typeof repos.$inferSelect;
+export type RunRow = typeof runs.$inferSelect;
+
+/** better-auth `account` row (camelCase drizzle props), the fields we read. */
 export interface GithubAccountRow {
   accountId: string;
   accessToken: string | null;
 }
 
-export interface InstallationRow {
-  installation_id: number;
-  account_login: string | null;
-  user_id: string | null;
-  created_at: number;
-}
-
-export interface RepoRow {
-  user_id: string;
-  repo_id: number;
-  full_name: string;
-  private: number;
-  default_branch: string;
-  installation_id: number;
-  state: RepoState;
-  pr_url: string | null;
-  runnerbox_token_hash: string | null;
-  created_at: number;
-}
-
-export interface RunRow {
-  id: string;
-  user_id: string;
-  repo_full_name: string;
-  gh_run_id: number | null;
-  state: RunState;
-  tunnel_url: string | null;
-  daemon_token: string | null;
-  active_devices: number;
-  android_ready: number;
-  created_at: number;
-  dispatched_at: number | null;
-  live_at: number | null;
-  ended_at: number | null;
-  expires_at: number | null;
-  end_reason: string | null;
-}
-
 export const TERMINAL_RUN_STATES: readonly RunState[] = ["ended", "failed"];
-export const ACTIVE_RUN_STATES: readonly RunState[] = [
-  "dispatching",
-  "queued",
-  "booting",
-  "live",
-];
+export const ACTIVE_RUN_STATES: readonly RunState[] = ["dispatching", "queued", "booting", "live"];
 
 export function isTerminal(state: RunState): boolean {
   return TERMINAL_RUN_STATES.includes(state);
@@ -80,49 +45,36 @@ export function isTerminal(state: RunState): boolean {
  * GET /user/installations (repo picker).
  */
 export async function getGithubAccount(
-  db: D1Database,
+  db: Database,
   userId: string,
 ): Promise<GithubAccountRow | null> {
-  return db
-    .prepare(
-      `SELECT accountId, accessToken FROM account
-       WHERE userId = ? AND providerId = 'github'
-       ORDER BY createdAt DESC LIMIT 1`,
-    )
-    .bind(userId)
-    .first<GithubAccountRow>();
+  const row = await db
+    .select({ accountId: account.accountId, accessToken: account.accessToken })
+    .from(account)
+    .where(and(eq(account.userId, userId), eq(account.providerId, "github")))
+    .orderBy(desc(account.createdAt))
+    .limit(1)
+    .get();
+  return row ?? null;
 }
 
-export async function getRepoForUser(
-  db: D1Database,
-  userId: string,
-): Promise<RepoRow | null> {
-  return db
-    .prepare("SELECT * FROM repos WHERE user_id = ?")
-    .bind(userId)
-    .first<RepoRow>();
+export async function getRepoForUser(db: Database, userId: string): Promise<RepoRow | null> {
+  const row = await db.select().from(repos).where(eq(repos.user_id, userId)).get();
+  return row ?? null;
 }
 
-export async function getLatestActiveRun(
-  db: D1Database,
-  userId: string,
-): Promise<RunRow | null> {
-  return db
-    .prepare(
-      `SELECT * FROM runs
-       WHERE user_id = ? AND state NOT IN ('ended', 'failed')
-       ORDER BY created_at DESC LIMIT 1`,
-    )
-    .bind(userId)
-    .first<RunRow>();
+export async function getLatestActiveRun(db: Database, userId: string): Promise<RunRow | null> {
+  const row = await db
+    .select()
+    .from(runs)
+    .where(and(eq(runs.user_id, userId), notInArray(runs.state, ["ended", "failed"])))
+    .orderBy(desc(runs.created_at))
+    .limit(1)
+    .get();
+  return row ?? null;
 }
 
-export async function getRepoByTokenHash(
-  db: D1Database,
-  tokenHash: string,
-): Promise<RepoRow | null> {
-  return db
-    .prepare("SELECT * FROM repos WHERE runnerbox_token_hash = ?")
-    .bind(tokenHash)
-    .first<RepoRow>();
+export async function getRepoByTokenHash(db: Database, tokenHash: string): Promise<RepoRow | null> {
+  const row = await db.select().from(repos).where(eq(repos.runnerbox_token_hash, tokenHash)).get();
+  return row ?? null;
 }

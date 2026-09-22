@@ -1,4 +1,7 @@
 import { Hono } from "hono";
+import { and, desc, eq, isNull, notInArray } from "drizzle-orm";
+import { createDb, schema } from "@runnerbox/db";
+import type { Database } from "@runnerbox/db";
 import type {
   EnsureRunRequest,
   EnsureRunResponse,
@@ -8,16 +11,11 @@ import type {
 } from "@runnerbox/shared";
 import { HARD_EXIT_MINUTES, MAX_DEVICES_PER_RUN } from "@runnerbox/shared";
 import type { AppContext } from "../middleware";
+import type { Env } from "../env";
 import { requireRunnerToken, requireUser } from "../middleware";
 import type { RepoRow, RunRow } from "../db";
 import { getLatestActiveRun, getRepoForUser, isTerminal } from "../db";
-import {
-  apiError,
-  newId,
-  nowSeconds,
-  toPublicRun,
-  toRunSummary,
-} from "../util";
+import { apiError, newId, nowSeconds, toPublicRun, toRunSummary } from "../util";
 import {
   bindGhRunId,
   cancelWorkflowRun,
@@ -68,23 +66,20 @@ export function mapWorkflowRun(
 }
 
 async function applyRunTransition(
-  db: D1Database,
+  db: Database,
   run: RunRow,
   next: { state: RunState; endReason: string | null },
 ): Promise<RunRow> {
   const now = nowSeconds();
   const terminal = isTerminal(next.state);
   await db
-    .prepare(
-      `UPDATE runs SET state = ?, end_reason = ?, ended_at = ? WHERE id = ?`,
-    )
-    .bind(
-      next.state,
-      next.endReason ?? run.end_reason,
-      terminal ? (run.ended_at ?? now) : run.ended_at,
-      run.id,
-    )
-    .run();
+    .update(schema.runs)
+    .set({
+      state: next.state,
+      end_reason: next.endReason ?? run.end_reason,
+      ended_at: terminal ? (run.ended_at ?? now) : run.ended_at,
+    })
+    .where(eq(schema.runs.id, run.id));
   return {
     ...run,
     state: next.state,
@@ -99,23 +94,24 @@ async function applyRunTransition(
  * GitHub API.
  */
 export async function reconcileRun(
-  env: { DB: D1Database; KV: KVNamespace },
+  env: Pick<Env, "DB" | "KV">,
   run: RunRow,
   repo: RepoRow | null,
   instToken: string | null,
 ): Promise<RunRow> {
+  const db = createDb(env);
   if (isTerminal(run.state) || !repo) return run;
   const now = nowSeconds();
 
   // Past the hard-exit horizon → treat as ended regardless of what GH says.
   if (run.expires_at !== null && run.expires_at < now) {
-    return applyRunTransition(env.DB, run, { state: "ended", endReason: "expired" });
+    return applyRunTransition(db, run, { state: "ended", endReason: "expired" });
   }
 
   // Dispatching with no gh_run_id: retry binding briefly, then give up.
   if (run.state === "dispatching" && run.gh_run_id === null) {
     if (run.created_at + DISPATCH_BIND_GRACE_SECONDS < now) {
-      return applyRunTransition(env.DB, run, { state: "failed", endReason: "run_never_appeared" });
+      return applyRunTransition(db, run, { state: "failed", endReason: "run_never_appeared" });
     }
     if (!instToken) return run;
     const throttleKey = `gh_check:${run.id}`;
@@ -123,9 +119,10 @@ export async function reconcileRun(
     await env.KV.put(throttleKey, "1", { expirationTtl: GH_CHECK_THROTTLE_SECONDS });
     const bound = await bindGhRunId(instToken, repo.full_name, run.created_at, 1).catch(() => null);
     if (bound) {
-      await env.DB.prepare("UPDATE runs SET gh_run_id = ?, state = 'queued' WHERE id = ? AND gh_run_id IS NULL")
-        .bind(bound, run.id)
-        .run();
+      await db
+        .update(schema.runs)
+        .set({ gh_run_id: bound, state: "queued" })
+        .where(and(eq(schema.runs.id, run.id), isNull(schema.runs.gh_run_id)));
       return { ...run, gh_run_id: bound, state: "queued" };
     }
     return run;
@@ -139,7 +136,8 @@ export async function reconcileRun(
     (run.state === "dispatching" || run.state === "queued" || run.state === "booting") &&
     run.created_at + 90 < now;
   const staleClosing = run.state === "closing";
-  const suspiciousLive = run.state === "live" && run.live_at !== null && run.live_at + HARD_EXIT_MINUTES * 60 < now;
+  const suspiciousLive =
+    run.state === "live" && run.live_at !== null && run.live_at + HARD_EXIT_MINUTES * 60 < now;
   if (!staleEarly && !staleClosing && !suspiciousLive) return run;
 
   const throttleKey = `gh_check:${run.id}`;
@@ -149,10 +147,10 @@ export async function reconcileRun(
   const info = await getWorkflowRun(instToken, repo.full_name, run.gh_run_id).catch(() => null);
   if (!info) {
     // Run vanished from GitHub entirely → almost certainly dead.
-    return applyRunTransition(env.DB, run, { state: "failed", endReason: "run_not_found" });
+    return applyRunTransition(db, run, { state: "failed", endReason: "run_not_found" });
   }
   const next = mapWorkflowRun(info.status, info.conclusion, run.state);
-  return next ? applyRunTransition(env.DB, run, next) : run;
+  return next ? applyRunTransition(db, run, next) : run;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,18 +159,24 @@ export async function reconcileRun(
 
 runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
   const user = c.get("user");
+  const db = createDb(c.env);
   const body = await c.req.json<EnsureRunRequest>().catch(() => ({}) as EnsureRunRequest);
   const wantNew = body.new === true;
 
-  const repo = await getRepoForUser(c.env.DB, user.id);
+  const repo = await getRepoForUser(db, user.id);
   if (!repo) return apiError(c, 404, "no_repo", "Connect a repo first (dashboard onboarding).");
   if (repo.state !== "ok") {
-    return apiError(c, 409, "repo_not_ready", `Repo state is "${repo.state}" — finish setup or run repair.`);
+    return apiError(
+      c,
+      409,
+      "repo_not_ready",
+      `Repo state is "${repo.state}" — finish setup or run repair.`,
+    );
   }
 
   const instToken = await installationToken(c.env, repo.installation_id);
 
-  let active = await getLatestActiveRun(c.env.DB, user.id);
+  let active = await getLatestActiveRun(db, user.id);
   if (active) active = await reconcileRun(c.env, active, repo, instToken);
 
   if (active && !isTerminal(active.state)) {
@@ -204,7 +208,10 @@ runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
         const resp: EnsureRunResponse = { state: "booting", runId: active.id };
         return c.json(resp);
       }
-      const resp: EnsureRunResponse = { state: active.state as "dispatching" | "queued" | "booting", runId: active.id };
+      const resp: EnsureRunResponse = {
+        state: active.state as "dispatching" | "queued" | "booting",
+        runId: active.id,
+      };
       return c.json(resp);
     }
     // wantNew → mark the old run for shutdown and dispatch fresh.
@@ -213,11 +220,12 @@ runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
         cancelWorkflowRun(instToken, repo.full_name, active.gh_run_id).catch(() => {}),
       );
     }
-    await c.env.DB.prepare(
-      "UPDATE runs SET state = 'closing' WHERE id = ? AND state NOT IN ('ended','failed')",
-    )
-      .bind(active.id)
-      .run();
+    await db
+      .update(schema.runs)
+      .set({ state: "closing" })
+      .where(
+        and(eq(schema.runs.id, active.id), notInArray(schema.runs.state, ["ended", "failed"])),
+      );
   }
 
   // Idempotency: two CLIs racing `ensure` — the loser sees the lock and
@@ -236,10 +244,16 @@ runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
     } catch (e) {
       if (e instanceof GithubApiError && (e.status === 404 || e.status === 410)) {
         // Actions disabled or workflow file missing → needs_repair (plan §11).
-        await c.env.DB.prepare("UPDATE repos SET state = 'needs_repair' WHERE user_id = ?")
-          .bind(user.id)
-          .run();
-        return apiError(c, 409, "dispatch_failed", "Could not dispatch the workflow — run `runnerbox repair`.");
+        await db
+          .update(schema.repos)
+          .set({ state: "needs_repair" })
+          .where(eq(schema.repos.user_id, user.id));
+        return apiError(
+          c,
+          409,
+          "dispatch_failed",
+          "Could not dispatch the workflow — run `runnerbox repair`.",
+        );
       }
       throw e;
     }
@@ -248,21 +262,16 @@ runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
     const ghRunId = await bindGhRunId(instToken, repo.full_name, now).catch(() => null);
 
     const runId = newId();
-    await c.env.DB.prepare(
-      `INSERT INTO runs (id, user_id, repo_full_name, gh_run_id, state, created_at, dispatched_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-      .bind(
-        runId,
-        user.id,
-        repo.full_name,
-        ghRunId,
-        ghRunId ? "queued" : "dispatching",
-        now,
-        now,
-        now + HARD_EXIT_MINUTES * 60,
-      )
-      .run();
+    await db.insert(schema.runs).values({
+      id: runId,
+      user_id: user.id,
+      repo_full_name: repo.full_name,
+      gh_run_id: ghRunId,
+      state: ghRunId ? "queued" : "dispatching",
+      created_at: now,
+      dispatched_at: now,
+      expires_at: now + HARD_EXIT_MINUTES * 60,
+    });
 
     const resp: EnsureRunResponse = ghRunId
       ? { state: "queued", runId }
@@ -280,8 +289,9 @@ runRoutes.post("/v1/runs/ensure", requireUser, async (c) => {
 
 runRoutes.get("/v1/runs/current", requireUser, async (c) => {
   const user = c.get("user");
-  const repo = await getRepoForUser(c.env.DB, user.id);
-  let run = await getLatestActiveRun(c.env.DB, user.id);
+  const db = createDb(c.env);
+  const repo = await getRepoForUser(db, user.id);
+  let run = await getLatestActiveRun(db, user.id);
   if (run && repo) {
     // Reconciliation may need an installation token; fetch lazily only when
     // the run looks stale to avoid paying the JWT+KV cost on every poll.
@@ -307,12 +317,14 @@ runRoutes.get("/v1/runs/current", requireUser, async (c) => {
 
 runRoutes.get("/v1/runs", requireUser, async (c) => {
   const user = c.get("user");
-  const { results } = await c.env.DB.prepare(
-    "SELECT * FROM runs WHERE user_id = ? ORDER BY created_at DESC LIMIT 20",
-  )
-    .bind(user.id)
-    .all<RunRow>();
-  return c.json({ runs: (results ?? []).map(toRunSummary) });
+  const db = createDb(c.env);
+  const results = await db
+    .select()
+    .from(schema.runs)
+    .where(eq(schema.runs.user_id, user.id))
+    .orderBy(desc(schema.runs.created_at))
+    .limit(20);
+  return c.json({ runs: results.map(toRunSummary) });
 });
 
 // ---------------------------------------------------------------------------
@@ -321,34 +333,30 @@ runRoutes.get("/v1/runs", requireUser, async (c) => {
 
 runRoutes.post("/v1/runs/:id/stop", requireUser, async (c) => {
   const user = c.get("user");
+  const db = createDb(c.env);
   const runId = c.req.param("id");
-  let run = await c.env.DB.prepare("SELECT * FROM runs WHERE id = ?")
-    .bind(runId)
-    .first<RunRow>();
+  let run = await db.select().from(schema.runs).where(eq(schema.runs.id, runId)).get();
   // Ownership check: a run id is an unguessable uuid, but still scope to user.
   if (!run || run.user_id !== user.id) {
     return apiError(c, 404, "not_found", "Run not found.");
   }
   if (isTerminal(run.state)) return c.json({ run: toPublicRun(run) });
 
-  const repo = await getRepoForUser(c.env.DB, user.id);
+  const repo = await getRepoForUser(db, user.id);
   const now = nowSeconds();
   if (run.gh_run_id && repo) {
     try {
       const instToken = await installationToken(c.env, repo.installation_id);
       await cancelWorkflowRun(instToken, repo.full_name, run.gh_run_id);
-      await c.env.DB.prepare("UPDATE runs SET state = 'closing' WHERE id = ?")
-        .bind(run.id)
-        .run();
+      await db.update(schema.runs).set({ state: "closing" }).where(eq(schema.runs.id, run.id));
       run = { ...run, state: "closing" };
     } catch (e) {
       if (e instanceof GithubApiError && e.status === 404) {
         // Already gone on GitHub — close it locally.
-        await c.env.DB.prepare(
-          "UPDATE runs SET state = 'ended', ended_at = ?, end_reason = 'cancelled' WHERE id = ?",
-        )
-          .bind(now, run.id)
-          .run();
+        await db
+          .update(schema.runs)
+          .set({ state: "ended", ended_at: now, end_reason: "cancelled" })
+          .where(eq(schema.runs.id, run.id));
         run = { ...run, state: "ended", ended_at: now, end_reason: "cancelled" };
       } else {
         throw e;
@@ -356,11 +364,10 @@ runRoutes.post("/v1/runs/:id/stop", requireUser, async (c) => {
     }
   } else {
     // Never bound to a GH run → nothing to cancel remotely.
-    await c.env.DB.prepare(
-      "UPDATE runs SET state = 'ended', ended_at = ?, end_reason = 'stopped' WHERE id = ?",
-    )
-      .bind(now, run.id)
-      .run();
+    await db
+      .update(schema.runs)
+      .set({ state: "ended", ended_at: now, end_reason: "stopped" })
+      .where(eq(schema.runs.id, run.id));
     run = { ...run, state: "ended", ended_at: now, end_reason: "stopped" };
   }
   return c.json({ run: toPublicRun(run) });
@@ -375,29 +382,40 @@ runRoutes.post("/v1/runs/:id/stop", requireUser, async (c) => {
 // leaked token could attach foreign tunnels to arbitrary runs.
 runRoutes.post("/v1/runs/register", requireRunnerToken, async (c) => {
   const repo = c.get("repo");
+  const db = createDb(c.env);
   const body = await c.req.json<RunRegisterRequest>().catch(() => null);
   if (!body || typeof body.ghRunId !== "number" || !body.tunnelUrl || !body.daemonToken) {
     return apiError(c, 400, "bad_request", "Expected {ghRunId, tunnelUrl, daemonToken, versions}.");
   }
 
   // Normal path: gh_run_id was bound at dispatch time.
-  let run = await c.env.DB.prepare("SELECT * FROM runs WHERE gh_run_id = ?")
-    .bind(body.ghRunId)
-    .first<RunRow>();
+  let run = await db
+    .select()
+    .from(schema.runs)
+    .where(eq(schema.runs.gh_run_id, body.ghRunId))
+    .get();
 
   if (!run) {
     // Fallback: ensure's bind poll timed out and the webhook hasn't arrived —
     // adopt the run id onto the single unbound dispatching run for this repo.
-    run = await c.env.DB.prepare(
-      `SELECT * FROM runs WHERE repo_full_name = ? AND gh_run_id IS NULL AND state = 'dispatching'
-       ORDER BY created_at DESC LIMIT 1`,
-    )
-      .bind(repo.full_name)
-      .first<RunRow>();
+    run = await db
+      .select()
+      .from(schema.runs)
+      .where(
+        and(
+          eq(schema.runs.repo_full_name, repo.full_name),
+          isNull(schema.runs.gh_run_id),
+          eq(schema.runs.state, "dispatching"),
+        ),
+      )
+      .orderBy(desc(schema.runs.created_at))
+      .limit(1)
+      .get();
     if (run) {
-      await c.env.DB.prepare("UPDATE runs SET gh_run_id = ? WHERE id = ? AND gh_run_id IS NULL")
-        .bind(body.ghRunId, run.id)
-        .run();
+      await db
+        .update(schema.runs)
+        .set({ gh_run_id: body.ghRunId })
+        .where(and(eq(schema.runs.id, run.id), isNull(schema.runs.gh_run_id)));
       run = { ...run, gh_run_id: body.ghRunId };
     }
   }
@@ -411,11 +429,15 @@ runRoutes.post("/v1/runs/register", requireRunnerToken, async (c) => {
   }
 
   const now = nowSeconds();
-  await c.env.DB.prepare(
-    `UPDATE runs SET state = 'live', tunnel_url = ?, daemon_token = ?, live_at = ? WHERE id = ?`,
-  )
-    .bind(body.tunnelUrl, body.daemonToken, now, run.id)
-    .run();
+  await db
+    .update(schema.runs)
+    .set({
+      state: "live",
+      tunnel_url: body.tunnelUrl,
+      daemon_token: body.daemonToken,
+      live_at: now,
+    })
+    .where(eq(schema.runs.id, run.id));
   return c.json({ ok: true });
 });
 
@@ -423,48 +445,66 @@ runRoutes.post("/v1/runs/register", requireRunnerToken, async (c) => {
 // detected lazily (see reconcileRun — no heartbeat column in the locked schema).
 runRoutes.post("/v1/runs/heartbeat", requireRunnerToken, async (c) => {
   const repo = c.get("repo");
+  const db = createDb(c.env);
   const body = await c.req.json<RunHeartbeatRequest>().catch(() => null);
   if (!body || typeof body.ghRunId !== "number") {
     return apiError(c, 400, "bad_request", "Expected {ghRunId, active_devices, android_ready}.");
   }
-  const run = await c.env.DB.prepare(
-    "SELECT * FROM runs WHERE gh_run_id = ? AND repo_full_name = ?",
-  )
-    .bind(body.ghRunId, repo.full_name)
-    .first<RunRow>();
+  const run = await db
+    .select()
+    .from(schema.runs)
+    .where(
+      and(eq(schema.runs.gh_run_id, body.ghRunId), eq(schema.runs.repo_full_name, repo.full_name)),
+    )
+    .get();
   if (!run || isTerminal(run.state)) {
     return apiError(c, 404, "run_not_found", "No active run for this gh_run_id.");
   }
-  await c.env.DB.prepare(
-    "UPDATE runs SET active_devices = ?, android_ready = ? WHERE id = ?",
-  )
-    .bind(Math.max(0, body.activeDevices | 0), body.androidReady ? 1 : 0, run.id)
-    .run();
+  await db
+    .update(schema.runs)
+    .set({
+      active_devices: Math.max(0, body.activeDevices | 0),
+      android_ready: body.androidReady ? 1 : 0,
+    })
+    .where(eq(schema.runs.id, run.id));
   return c.json({ ok: true });
 });
 
 // POST /v1/runs/deregister — clean shutdown path from the agent.
 runRoutes.post("/v1/runs/deregister", requireRunnerToken, async (c) => {
   const repo = c.get("repo");
+  const db = createDb(c.env);
   const body = await c.req
     .json<{ ghRunId?: number; reason?: string }>()
     .catch(() => ({}) as { ghRunId?: number; reason?: string });
   const now = nowSeconds();
+  const set = {
+    state: "ended" as const,
+    ended_at: now,
+    end_reason: body.reason ?? "agent_exit",
+  };
   if (typeof body.ghRunId === "number") {
-    await c.env.DB.prepare(
-      `UPDATE runs SET state = 'ended', ended_at = ?, end_reason = ?
-       WHERE gh_run_id = ? AND repo_full_name = ? AND state NOT IN ('ended','failed')`,
-    )
-      .bind(now, body.reason ?? "agent_exit", body.ghRunId, repo.full_name)
-      .run();
+    await db
+      .update(schema.runs)
+      .set(set)
+      .where(
+        and(
+          eq(schema.runs.gh_run_id, body.ghRunId),
+          eq(schema.runs.repo_full_name, repo.full_name),
+          notInArray(schema.runs.state, ["ended", "failed"]),
+        ),
+      );
   } else {
     // No gh_run_id — end any still-active run for this repo.
-    await c.env.DB.prepare(
-      `UPDATE runs SET state = 'ended', ended_at = ?, end_reason = ?
-       WHERE repo_full_name = ? AND state NOT IN ('ended','failed')`,
-    )
-      .bind(now, body.reason ?? "agent_exit", repo.full_name)
-      .run();
+    await db
+      .update(schema.runs)
+      .set(set)
+      .where(
+        and(
+          eq(schema.runs.repo_full_name, repo.full_name),
+          notInArray(schema.runs.state, ["ended", "failed"]),
+        ),
+      );
   }
   return c.json({ ok: true });
 });

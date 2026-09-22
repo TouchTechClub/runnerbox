@@ -1,19 +1,38 @@
 {
   "name": "runnerbox",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "typescript": "^5.6.0",
+      "@cloudflare/workers-types": "^4.20250913.0",
+      "better-auth": "1.7.5",
+      "drizzle-orm": "1.0.0-rc.4",
+      "react": "^18.3.1",
+      "react-dom": "^18.3.1"
+    }
+  },
   "type": "module",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "typecheck": "for d in packages/shared packages/agent apps/api apps/cli apps/web; do echo \"── $d\"; (bun run --cwd $d typecheck) || exit 1; done",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "check": "oxlint && oxfmt --check",
+    "check:fix": "oxlint --fix && oxfmt --write",
+    "db:generate": "turbo run db:generate -F @runnerbox/db",
     "dev:api": "bun run --cwd apps/api dev",
     "dev:web": "bun run --cwd apps/web dev",
     "build:agent": "bun run --cwd packages/agent build"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
-  }
+    "oxfmt": "^0.66.0",
+    "oxlint": "^1.81.0",
+    "turbo": "^2.5.0",
+    "typescript": "catalog:"
+  },
+  "packageManager": "bun@1.3.14"
 }

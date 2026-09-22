@@ -26,8 +26,12 @@ export async function installAgentDevice(): Promise<string> {
     const spec = `agent-device@${PINS.agentDevice}`;
     info(`npm i -g ${spec}`);
     const res = await run(["npm", "i", "-g", spec], { timeoutMs: 240_000 });
-    for (const l of res.stdout.split("\n")) l.trim() && relay("npm", l);
-    for (const l of res.stderr.split("\n")) l.trim() && relay("npm", l);
+    for (const l of res.stdout.split("\n")) {
+      if (l.trim()) relay("npm", l);
+    }
+    for (const l of res.stderr.split("\n")) {
+      if (l.trim()) relay("npm", l);
+    }
     if (res.code !== 0) throw new Error(`npm i -g ${spec} exited ${res.code}`);
 
     // Resolve the binary: PATH first, then the global npm prefix (global
@@ -124,10 +128,7 @@ function firstExisting(candidates: Array<string | null>): string | null {
 export async function prepareAndroid(setReady: () => void): Promise<void> {
   startGroup("Android emulator prep");
   try {
-    const sdkRoot = firstExisting([
-      Bun.env.ANDROID_HOME ?? null,
-      Bun.env.ANDROID_SDK_ROOT ?? null,
-    ]);
+    const sdkRoot = firstExisting([Bun.env.ANDROID_HOME ?? null, Bun.env.ANDROID_SDK_ROOT ?? null]);
     if (!sdkRoot) {
       warn("no ANDROID_HOME/ANDROID_SDK_ROOT — Android emulator unavailable this run");
       return;
@@ -162,7 +163,9 @@ export async function prepareAndroid(setReady: () => void): Promise<void> {
       input: "y\n".repeat(16),
       timeoutMs: 600_000,
     });
-    for (const l of inst.stdout.split("\n")) l.trim() && relay("sdkmanager", l);
+    for (const l of inst.stdout.split("\n")) {
+      if (l.trim()) relay("sdkmanager", l);
+    }
     if (inst.code !== 0) {
       warn(`sdkmanager install exited ${inst.code}: ${inst.stderr.trim().slice(0, 300)}`);
       return;
@@ -170,7 +173,18 @@ export async function prepareAndroid(setReady: () => void): Promise<void> {
 
     // "no" answers the "custom hardware profile?" prompt.
     const avd = await run(
-      [avdmanager, "create", "avd", "-n", "runnerbox", "-k", PINS.androidSystemImage, "-d", "pixel_6", "--force"],
+      [
+        avdmanager,
+        "create",
+        "avd",
+        "-n",
+        "runnerbox",
+        "-k",
+        PINS.androidSystemImage,
+        "-d",
+        "pixel_6",
+        "--force",
+      ],
       { input: "no\n", timeoutMs: 60_000 },
     );
     if (avd.code !== 0) {

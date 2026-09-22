@@ -175,10 +175,9 @@ export async function currentRun(): Promise<PublicRun | null> {
 }
 
 export const stopRun = (runId: string) =>
-  api<{ ok: boolean; state?: string }>(
-    `/v1/runs/${encodeURIComponent(runId)}/stop`,
-    { method: "POST" },
-  );
+  api<{ ok: boolean; state?: string }>(`/v1/runs/${encodeURIComponent(runId)}/stop`, {
+    method: "POST",
+  });
 
 /** Map API error codes into actionable CLI messages. */
 export function friendlyError(err: unknown): CliError {

@@ -17,7 +17,7 @@ import type { RunRegisterRequest } from "@runnerbox/shared";
 import { PINS } from "./pins.js";
 import pkg from "../package.json" with { type: "json" };
 import { addMask, error, info, warn } from "./log.js";
-import { pumpLines, run, setSecretFilter } from "./proc.js";
+import { pumpLines, setSecretFilter } from "./proc.js";
 import type { ChildProc } from "./proc.js";
 import { installAgentDevice, installCloudflared, prepareAndroid } from "./provision.js";
 import { ApiClient, HttpError } from "./api.js";
@@ -207,9 +207,7 @@ async function register(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function killChildren(): Promise<void> {
-  const kids = [state.children.proxy, state.children.tunnel].filter(
-    (c): c is ManagedChild => !!c,
-  );
+  const kids = [state.children.proxy, state.children.tunnel].filter((c): c is ManagedChild => !!c);
   for (const c of kids) {
     if (c.dead) continue;
     try {
@@ -332,7 +330,9 @@ async function supervise(): Promise<never> {
         await shutdown("token revoked", 1);
       }
       heartbeatFailures++;
-      warn(`heartbeat failed (${heartbeatFailures}/${HEARTBEAT_FAILURE_LIMIT}): ${String(err).slice(0, 200)}`);
+      warn(
+        `heartbeat failed (${heartbeatFailures}/${HEARTBEAT_FAILURE_LIMIT}): ${String(err).slice(0, 200)}`,
+      );
       if (heartbeatFailures >= HEARTBEAT_FAILURE_LIMIT) {
         error("too many consecutive heartbeat failures — exiting");
         await shutdown("heartbeat failures", 1);
@@ -385,9 +385,7 @@ async function main(): Promise<void> {
   addMask(state.daemonToken);
   // Filter by URL *pattern* (not just the known value) so the very stderr line
   // the URL is parsed from is never relayed to the log.
-  setSecretFilter(
-    (line) => line.includes(state.daemonToken) || TUNNEL_URL_RE.test(line),
-  );
+  setSecretFilter((line) => line.includes(state.daemonToken) || TUNNEL_URL_RE.test(line));
 
   // 4. agent-device proxy
   state.children.proxy = spawnProxy();

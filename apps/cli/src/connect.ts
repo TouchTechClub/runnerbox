@@ -108,9 +108,7 @@ export function connectFlow(info: ConnectInfo, quiet = false): void {
       env: { ...process.env, AGENT_DEVICE_DAEMON_AUTH_TOKEN: info.daemonToken },
     });
     if (res.error || res.status !== 0) {
-      out.write(
-        pc.yellow("  agent-device connect failed — use the manual commands below.\n"),
-      );
+      out.write(pc.yellow("  agent-device connect failed — use the manual commands below.\n"));
     } else {
       const saved = persistDaemonToken(info);
       out.write(

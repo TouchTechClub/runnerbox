@@ -13,10 +13,9 @@ import { blake2b } from "@noble/hashes/blake2b.js";
  */
 export function sealedBox(message: Uint8Array, recipientPublicKey: Uint8Array): Uint8Array {
   const ephemeral = nacl.box.keyPair();
-  const nonce = blake2b(
-    concat(ephemeral.publicKey, recipientPublicKey),
-    { dkLen: nacl.box.nonceLength },
-  );
+  const nonce = blake2b(concat(ephemeral.publicKey, recipientPublicKey), {
+    dkLen: nacl.box.nonceLength,
+  });
   const box = nacl.box(message, nonce, recipientPublicKey, ephemeral.secretKey);
   return concat(ephemeral.publicKey, box);
 }

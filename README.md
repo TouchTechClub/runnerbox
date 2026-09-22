@@ -13,14 +13,14 @@ Free on-demand iOS simulators & Android emulators running on your own GitHub Act
 
 ## Monorepo
 
-| Path | What |
-|---|---|
-| `apps/api` | Cloudflare Worker (Hono + D1 + KV) — auth, repo connect, run registry |
-| `apps/cli` | `runnerbox` npm package — login/sim/ps/stop/repair |
-| `apps/web` | TanStack dashboard (Vite + Router + Query) — CF Pages |
-| `packages/agent` | `runnerbox-agent` Bun-compiled binary that runs inside the GH job |
-| `packages/shared` | API contracts, constants, canonical workflow YAML |
-| `action-src` | Source of the composite action published to `runnerbox/runner` |
+| Path              | What                                                                  |
+| ----------------- | --------------------------------------------------------------------- |
+| `apps/api`        | Cloudflare Worker (Hono + D1 + KV) — auth, repo connect, run registry |
+| `apps/cli`        | `runnerbox` npm package — login/sim/ps/stop/repair                    |
+| `apps/web`        | TanStack dashboard (Vite + Router + Query) — CF Pages                 |
+| `packages/agent`  | `runnerbox-agent` Bun-compiled binary that runs inside the GH job     |
+| `packages/shared` | API contracts, constants, canonical workflow YAML                     |
+| `action-src`      | Source of the composite action published to `runnerbox/runner`        |
 
 ## Develop
 

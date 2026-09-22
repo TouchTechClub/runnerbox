@@ -65,11 +65,7 @@ export async function appJwt(env: Env): Promise<string> {
     bytesToBase64Url(enc.encode(JSON.stringify(header))) +
     "." +
     bytesToBase64Url(enc.encode(JSON.stringify(payload)));
-  const sig = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    enc.encode(signingInput),
-  );
+  const sig = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, enc.encode(signingInput));
   return signingInput + "." + bytesToBase64Url(new Uint8Array(sig));
 }
 
@@ -82,11 +78,7 @@ export interface GhFetchOptions {
   body?: unknown;
 }
 
-export async function gh<T>(
-  token: string,
-  path: string,
-  opts: GhFetchOptions = {},
-): Promise<T> {
+export async function gh<T>(token: string, path: string, opts: GhFetchOptions = {}): Promise<T> {
   const res = await fetch(`${GH_API}${path}`, {
     method: opts.method ?? "GET",
     headers: {
@@ -100,7 +92,10 @@ export async function gh<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new GithubApiError(res.status, `GitHub ${opts.method ?? "GET"} ${path}: ${res.status} ${text.slice(0, 300)}`);
+    throw new GithubApiError(
+      res.status,
+      `GitHub ${opts.method ?? "GET"} ${path}: ${res.status} ${text.slice(0, 300)}`,
+    );
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -115,16 +110,17 @@ interface AccessTokenResponse {
   expires_at: string; // ISO
 }
 
-export async function installationToken(
-  env: Env,
-  installationId: number,
-): Promise<string> {
+export async function installationToken(env: Env, installationId: number): Promise<string> {
   const kvKey = `gh_inst_token:${installationId}`;
   const cached = await env.KV.get(kvKey, "json");
   if (cached && typeof cached === "object") {
     const c = cached as { token?: string; expiresAt?: number };
     // 60s safety margin so a token doesn't die mid-request.
-    if (typeof c.token === "string" && typeof c.expiresAt === "number" && c.expiresAt - 60 > nowSeconds()) {
+    if (
+      typeof c.token === "string" &&
+      typeof c.expiresAt === "number" &&
+      c.expiresAt - 60 > nowSeconds()
+    ) {
       return c.token;
     }
   }
@@ -159,9 +155,7 @@ interface PullResponse {
   number: number;
 }
 
-export type CommitResult =
-  | { kind: "committed" }
-  | { kind: "pending_pr"; prUrl: string };
+export type CommitResult = { kind: "committed" } | { kind: "pending_pr"; prUrl: string };
 
 const SETUP_BRANCH = "runnerbox-setup";
 
@@ -182,11 +176,7 @@ async function putWorkflowFile(
   });
 }
 
-async function getFileSha(
-  token: string,
-  fullName: string,
-  branch: string,
-): Promise<string | null> {
+async function getFileSha(token: string, fullName: string, branch: string): Promise<string | null> {
   try {
     const file = await gh<ContentFile>(
       token,
@@ -286,37 +276,31 @@ export async function writeRunnerboxTokenSecret(
     token,
     `/repos/${fullName}/actions/secrets/public-key`,
   );
-  const encrypted = sealedBox(
-    new TextEncoder().encode(secretValue),
-    base64ToBytes(pub.key),
-  );
-  const res = await fetch(
-    `${GH_API}/repos/${fullName}/actions/secrets/${REPO_SECRET_NAME}`,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "runnerbox-api",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        encrypted_value: bytesToBase64(encrypted),
-        key_id: pub.key_id,
-      }),
+  const encrypted = sealedBox(new TextEncoder().encode(secretValue), base64ToBytes(pub.key));
+  const res = await fetch(`${GH_API}/repos/${fullName}/actions/secrets/${REPO_SECRET_NAME}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "runnerbox-api",
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      encrypted_value: bytesToBase64(encrypted),
+      key_id: pub.key_id,
+    }),
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new GithubApiError(res.status, `write secret ${fullName}: ${res.status} ${text.slice(0, 300)}`);
+    throw new GithubApiError(
+      res.status,
+      `write secret ${fullName}: ${res.status} ${text.slice(0, 300)}`,
+    );
   }
 }
 
-export async function deleteRunnerboxTokenSecret(
-  token: string,
-  fullName: string,
-): Promise<void> {
+export async function deleteRunnerboxTokenSecret(token: string, fullName: string): Promise<void> {
   try {
     await gh<unknown>(token, `/repos/${fullName}/actions/secrets/${REPO_SECRET_NAME}`, {
       method: "DELETE",
@@ -336,11 +320,10 @@ export async function dispatchWorkflow(
   ref: string,
 ): Promise<void> {
   // The workflow file is addressed by path, per the REST API.
-  await gh<unknown>(
-    token,
-    `/repos/${fullName}/actions/workflows/runnerbox.yml/dispatches`,
-    { method: "POST", body: { ref } },
-  );
+  await gh<unknown>(token, `/repos/${fullName}/actions/workflows/runnerbox.yml/dispatches`, {
+    method: "POST",
+    body: { ref },
+  });
 }
 
 interface WorkflowRunsResponse {

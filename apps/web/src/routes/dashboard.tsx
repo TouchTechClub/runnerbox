@@ -98,9 +98,9 @@ function RepoCard() {
 
         {repo.private ? (
           <div className="notice warn">
-            ⚠️ Private repo: GitHub bills macOS Actions minutes at a{" "}
-            <strong>10× multiplier</strong>. Each RunnerBox run can burn ~10 hours of
-            metered minutes. Consider using a public repo instead.
+            ⚠️ Private repo: GitHub bills macOS Actions minutes at a <strong>10× multiplier</strong>
+            . Each RunnerBox run can burn ~10 hours of metered minutes. Consider using a public repo
+            instead.
           </div>
         ) : null}
 
@@ -113,8 +113,8 @@ function RepoCard() {
 
         {repo.state === "needs_repair" ? (
           <div className="notice error">
-            The repo setup is broken (workflow file or secret missing, or Actions
-            disabled). Hit <strong>Repair</strong> to re-install.
+            The repo setup is broken (workflow file or secret missing, or Actions disabled). Hit{" "}
+            <strong>Repair</strong> to re-install.
           </div>
         ) : null}
 
@@ -145,7 +145,9 @@ function RepoCard() {
           body="This removes the runnerbox workflow and RUNNERBOX_TOKEN secret, cancels any live run, and frees your repo slot. You can reconnect later."
           confirmLabel="Disconnect"
           busy={disconnect.isPending}
-          onConfirm={() => disconnect.mutate(undefined, { onSettled: () => setConfirmDisconnect(false) })}
+          onConfirm={() =>
+            disconnect.mutate(undefined, { onSettled: () => setConfirmDisconnect(false) })
+          }
           onCancel={() => setConfirmDisconnect(false)}
         />
       ) : null}
@@ -191,9 +193,7 @@ function LiveRunCard() {
       <div className="card">
         <h2>Live run</h2>
         <div className="card-body">
-          <p className="muted">
-            No active run. Start one from your terminal:
-          </p>
+          <p className="muted">No active run. Start one from your terminal:</p>
           <div className="term">
             <span className="cmd">runnerbox sim</span>
           </div>
@@ -203,11 +203,6 @@ function LiveRunCard() {
   }
 
   const isLive = run.state === "live";
-  const connectCommand = isLive
-    ? `export AGENT_DEVICE_DAEMON_AUTH_TOKEN=${
-        revealToken && run.daemonToken ? run.daemonToken : "<daemon token — reveal to fill>"
-      }\nagent-device connect proxy --daemon-base-url ${run.tunnelUrl ?? "<tunnel-url>"}/agent-device`
-    : "";
 
   const copyConnect = async () => {
     const cmd = `export AGENT_DEVICE_DAEMON_AUTH_TOKEN=${run.daemonToken ?? ""}\nagent-device connect proxy --daemon-base-url ${run.tunnelUrl ?? ""}/agent-device`;
@@ -227,15 +222,9 @@ function LiveRunCard() {
         <div className="row between">
           <div className="row">
             <RunStateChip state={run.state} />
-            {run.ghRunId ? (
-              <span className="small faint mono">gh run #{run.ghRunId}</span>
-            ) : null}
+            {run.ghRunId ? <span className="small faint mono">gh run #{run.ghRunId}</span> : null}
           </div>
-          <button
-            type="button"
-            className="btn sm danger"
-            onClick={() => setConfirmStop(true)}
-          >
+          <button type="button" className="btn sm danger" onClick={() => setConfirmStop(true)}>
             Stop
           </button>
         </div>
@@ -261,8 +250,7 @@ function LiveRunCard() {
           </span>
           {run.expiresAt ? (
             <span>
-              expires in{" "}
-              <span className="mono">{formatDuration(run.expiresAt - now)}</span>
+              expires in <span className="mono">{formatDuration(run.expiresAt - now)}</span>
             </span>
           ) : null}
         </div>
@@ -303,8 +291,7 @@ function LiveRunCard() {
 
         {stop.isError ? (
           <div className="notice error">
-            Stop failed:{" "}
-            {stop.error instanceof ApiError ? stop.error.message : "unknown error"}
+            Stop failed: {stop.error instanceof ApiError ? stop.error.message : "unknown error"}
           </div>
         ) : null}
       </div>
@@ -334,12 +321,8 @@ function HistoryCard() {
       <h2>Run history</h2>
       <div className="card-body">
         {runs.isLoading ? <Spinner label="loading…" /> : null}
-        {runs.isError ? (
-          <div className="notice error">Failed to load run history.</div>
-        ) : null}
-        {!runs.isLoading && list.length === 0 ? (
-          <p className="muted small">No runs yet.</p>
-        ) : null}
+        {runs.isError ? <div className="notice error">Failed to load run history.</div> : null}
+        {!runs.isLoading && list.length === 0 ? <p className="muted small">No runs yet.</p> : null}
         {list.length > 0 ? (
           <table className="table">
             <thead>

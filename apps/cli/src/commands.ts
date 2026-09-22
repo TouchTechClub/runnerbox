@@ -113,7 +113,12 @@ export async function cmdInit(): Promise<void> {
   );
 }
 
-function printRepoConnected(repo: { fullName: string; state: string; prUrl: string | null; private: boolean }): void {
+function printRepoConnected(repo: {
+  fullName: string;
+  state: string;
+  prUrl: string | null;
+  private: boolean;
+}): void {
   console.log(`Repo connected: ${pc.bold(repo.fullName)} ${pc.dim(`(${repo.state})`)}`);
   if (repo.state === "pending_pr" && repo.prUrl) {
     console.log(
@@ -213,16 +218,13 @@ export async function cmdPs(): Promise<void> {
     return;
   }
 
-  const stateColor =
-    run.state === "live" ? pc.green : run.state === "failed" ? pc.red : pc.yellow;
+  const stateColor = run.state === "live" ? pc.green : run.state === "failed" ? pc.red : pc.yellow;
   console.log(`${pc.bold("run")} ${run.id}`);
   console.log(`  state:          ${stateColor(run.state)}`);
   console.log(`  gh_run_id:      ${run.ghRunId ?? pc.dim("pending")}`);
   console.log(`  active_devices: ${run.activeDevices}`);
   console.log(`  android_ready:  ${run.androidReady ? "yes" : "no"}`);
-  console.log(
-    `  expires:        ${run.expiresAt ? fmtCountdown(run.expiresAt) : pc.dim("n/a")}`,
-  );
+  console.log(`  expires:        ${run.expiresAt ? fmtCountdown(run.expiresAt) : pc.dim("n/a")}`);
   if (run.endReason) console.log(`  end_reason:     ${run.endReason}`);
 }
 

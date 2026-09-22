@@ -5,12 +5,7 @@ import { onboardingRoute } from "./routes/onboarding";
 import { deviceRoute } from "./routes/device";
 import { dashboardRoute } from "./routes/dashboard";
 
-const routeTree = rootRoute.addChildren([
-  indexRoute,
-  onboardingRoute,
-  deviceRoute,
-  dashboardRoute,
-]);
+const routeTree = rootRoute.addChildren([indexRoute, onboardingRoute, deviceRoute, dashboardRoute]);
 
 export const router = createRouter({
   routeTree,

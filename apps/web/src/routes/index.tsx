@@ -1,5 +1,6 @@
 import { createRoute, redirect } from "@tanstack/react-router";
 import { api } from "../lib/api";
+import { authClient } from "../lib/auth-client";
 import { rootRoute } from "./root";
 
 function Landing() {
@@ -8,25 +9,23 @@ function Landing() {
       <div className="kicker">$ runnerbox sim</div>
       <h1>Free iOS &amp; Android simulators on your own GitHub Actions minutes</h1>
       <p className="lede">
-        A macOS runner in your repo boots simulators and emulators, tunnels them to your
-        machine, and tears itself down when you&apos;re done. Public repos cost you nothing.
+        A macOS runner in your repo boots simulators and emulators, tunnels them to your machine,
+        and tears itself down when you&apos;re done. Public repos cost you nothing.
       </p>
       <button
         type="button"
         className="btn primary lg"
         onClick={() => {
-          void api
-            .signInGithub()
-            .then((url) => {
-              window.location.href = url;
-            });
+          // signIn.social redirects to GitHub itself when given callbackURL.
+          void authClient.signIn.social({
+            provider: "github",
+            callbackURL: `${window.location.origin}/dashboard`,
+          });
         }}
       >
         Sign in with GitHub
       </button>
-      <p className="hint">
-        Uses the RunnerBox GitHub App — works with any repo you install it on.
-      </p>
+      <p className="hint">Uses the RunnerBox GitHub App — works with any repo you install it on.</p>
     </div>
   );
 }

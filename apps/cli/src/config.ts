@@ -64,9 +64,7 @@ export function saveToken(token: string, login: string): void {
 export function requireToken(): string {
   const token = loadToken();
   if (!token) {
-    process.stderr.write(
-      "Not logged in. Run `runnerbox login` first.\n",
-    );
+    process.stderr.write("Not logged in. Run `runnerbox login` first.\n");
     process.exit(1);
   }
   return token;

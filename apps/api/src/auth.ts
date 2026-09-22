@@ -1,35 +1,28 @@
 import { betterAuth } from "better-auth";
 import { bearer, deviceAuthorization } from "better-auth/plugins";
-import { Kysely } from "kysely";
-import { D1Dialect } from "kysely-d1";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createDb, schema } from "@runnerbox/db";
 import type { Env } from "./env";
 
 /**
  * better-auth instance factory. Workers get bindings per-request via `c.env`,
  * so the auth object can't be a module-level singleton — build one per request
- * (cheap: the adapter just wraps env.DB in a Kysely D1 dialect).
+ * (cheap: the adapter just wraps env.DB in a drizzle D1 instance).
  *
- * Tables live in the same D1 database (see migrations/0002_better_auth.sql):
- *   user, session, account, verification, deviceCode
+ * Tables live in the same D1 database (drizzle schema @runnerbox/db):
+ *   user, session, account, verification, device_code
  */
 export function createAuth(env: Env) {
+  const db = createDb(env);
   return betterAuth({
-    database: {
-      db: new Kysely({ dialect: new D1Dialect({ database: env.DB }) }),
-      type: "sqlite",
-    },
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      schema,
+    }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.API_URL,
     trustedOrigins: [env.APP_URL],
     telemetry: { enabled: false },
-    advanced: {
-      database: {
-        // D1 rejects the PRAGMA introspection the kysely sqlite introspector
-        // uses (SQLITE_AUTH), so the runtime schema check can't run — the
-        // tables are owned by migrations/0002_better_auth.sql anyway.
-        validateSchema: false,
-      },
-    },
     socialProviders: {
       github: {
         clientId: env.GITHUB_CLIENT_ID,

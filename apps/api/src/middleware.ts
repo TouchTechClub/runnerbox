@@ -1,4 +1,5 @@
 import { createMiddleware } from "hono/factory";
+import { createDb } from "@runnerbox/db";
 import type { Env } from "./env";
 import type { AuthUser, RepoRow } from "./db";
 import { getGithubAccount, getRepoByTokenHash } from "./db";
@@ -22,14 +23,12 @@ export type AppContext = { Bindings: Env; Variables: AppVariables };
  */
 export const requireUser = createMiddleware<AppContext>(async (c, next) => {
   const auth = createAuth(c.env);
-  const session = await auth.api
-    .getSession({ headers: c.req.raw.headers })
-    .catch(() => null);
+  const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
   if (!session) {
     return apiError(c, 401, "unauthorized", "Sign in via the web app or `runnerbox login`.");
   }
 
-  const account = await getGithubAccount(c.env.DB, session.user.id);
+  const account = await getGithubAccount(createDb(c.env), session.user.id);
   const u = session.user as typeof session.user & { login?: string };
   const user: AuthUser = {
     id: session.user.id,
@@ -54,7 +53,7 @@ export const requireRunnerToken = createMiddleware<AppContext>(async (c, next) =
   if (!token) {
     return apiError(c, 401, "unauthorized", "Missing RUNNERBOX_TOKEN bearer.");
   }
-  const repo = await getRepoByTokenHash(c.env.DB, await sha256Hex(token));
+  const repo = await getRepoByTokenHash(createDb(c.env), await sha256Hex(token));
   if (!repo) {
     // Unknown token — never reveal whether a repo exists for it.
     return apiError(c, 403, "forbidden", "Invalid runner token.");

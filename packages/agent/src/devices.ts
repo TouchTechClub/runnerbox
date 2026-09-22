@@ -32,7 +32,10 @@ async function countBootedSims(): Promise<number> {
 async function countEmulators(): Promise<number> {
   const res = await run(["adb", "devices"], { timeoutMs: 10_000 });
   if (res.code !== 0) return 0;
-  const lines = res.stdout.split("\n").map((l) => l.trim()).filter(Boolean);
+  const lines = res.stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
   // First line is "List of devices attached"; entries look like
   // "emulator-5554\tdevice". Anything not a ready "device" state is excluded.
   return lines.slice(1).filter((l) => l.endsWith("\tdevice")).length;

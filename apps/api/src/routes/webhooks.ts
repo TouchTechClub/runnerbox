@@ -1,6 +1,7 @@
 import { Hono } from "hono";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import { createDb, schema } from "@runnerbox/db";
 import type { Env } from "../env";
-import type { RepoRow, RunRow } from "../db";
 import { nowSeconds } from "../util";
 import { verifyWebhookSignature } from "../github";
 import { mapWorkflowRun } from "./runs";
@@ -57,6 +58,7 @@ webhookRoutes.post("/webhooks/github", async (c) => {
   }
 
   const now = nowSeconds();
+  const db = createDb(c.env);
 
   if (event === "installation") {
     const p = payload as InstallationPayload;
@@ -66,25 +68,33 @@ webhookRoutes.post("/webhooks/github", async (c) => {
     if (p.action === "created") {
       // Record the installation; user attribution happens at repo/connect
       // (the webhook can't know which of our users clicked install).
-      await c.env.DB.prepare(
-        `INSERT INTO installations (installation_id, account_login, user_id, created_at)
-         VALUES (?, ?, NULL, ?)
-         ON CONFLICT(installation_id) DO UPDATE SET account_login = excluded.account_login`,
-      )
-        .bind(installationId, p.installation.account?.login ?? null, now)
-        .run();
+      await db
+        .insert(schema.installations)
+        .values({
+          installation_id: installationId,
+          account_login: p.installation.account?.login ?? null,
+          user_id: null,
+          created_at: now,
+        })
+        .onConflictDoUpdate({
+          target: schema.installations.installation_id,
+          set: { account_login: p.installation.account?.login ?? null },
+        });
     } else if (p.action === "deleted" || p.action === "suspend") {
-      await c.env.DB.prepare(
-        "UPDATE repos SET state = 'uninstalled' WHERE installation_id = ?",
-      )
-        .bind(installationId)
-        .run();
+      await db
+        .update(schema.repos)
+        .set({ state: "uninstalled" })
+        .where(eq(schema.repos.installation_id, installationId));
     } else if (p.action === "unsuspend") {
-      await c.env.DB.prepare(
-        "UPDATE repos SET state = 'needs_repair' WHERE installation_id = ? AND state = 'uninstalled'",
-      )
-        .bind(installationId)
-        .run();
+      await db
+        .update(schema.repos)
+        .set({ state: "needs_repair" })
+        .where(
+          and(
+            eq(schema.repos.installation_id, installationId),
+            eq(schema.repos.state, "uninstalled"),
+          ),
+        );
     }
     return c.json({ ok: true });
   }
@@ -98,11 +108,15 @@ webhookRoutes.post("/webhooks/github", async (c) => {
         .map((r) => r.full_name)
         .filter((n): n is string => typeof n === "string");
       for (const fullName of removed) {
-        await c.env.DB.prepare(
-          "UPDATE repos SET state = 'needs_repair' WHERE full_name = ? AND installation_id = ?",
-        )
-          .bind(fullName, p.installation.id)
-          .run();
+        await db
+          .update(schema.repos)
+          .set({ state: "needs_repair" })
+          .where(
+            and(
+              eq(schema.repos.full_name, fullName),
+              eq(schema.repos.installation_id, p.installation.id),
+            ),
+          );
       }
     }
     return c.json({ ok: true });
@@ -113,31 +127,35 @@ webhookRoutes.post("/webhooks/github", async (c) => {
     const wr = p.workflow_run;
     if (!wr?.id) return c.json({ ok: true });
 
-    let run = await c.env.DB.prepare("SELECT * FROM runs WHERE gh_run_id = ?")
-      .bind(wr.id)
-      .first<RunRow>();
+    let run = await db.select().from(schema.runs).where(eq(schema.runs.gh_run_id, wr.id)).get();
 
     if (!run && wr.repository?.full_name) {
       // Bind a dispatching run whose gh_run_id was never resolved by the
       // ensure-time poll (see bindGhRunId).
-      const repo = await c.env.DB.prepare(
-        "SELECT * FROM repos WHERE full_name = ?",
-      )
-        .bind(wr.repository.full_name)
-        .first<RepoRow>();
+      const repo = await db
+        .select()
+        .from(schema.repos)
+        .where(eq(schema.repos.full_name, wr.repository.full_name))
+        .get();
       if (repo) {
-        const unbound = await c.env.DB.prepare(
-          `SELECT * FROM runs WHERE user_id = ? AND gh_run_id IS NULL AND state = 'dispatching'
-           ORDER BY created_at DESC LIMIT 1`,
-        )
-          .bind(repo.user_id)
-          .first<RunRow>();
-        if (unbound) {
-          await c.env.DB.prepare(
-            "UPDATE runs SET gh_run_id = ? WHERE id = ? AND gh_run_id IS NULL",
+        const unbound = await db
+          .select()
+          .from(schema.runs)
+          .where(
+            and(
+              eq(schema.runs.user_id, repo.user_id),
+              isNull(schema.runs.gh_run_id),
+              eq(schema.runs.state, "dispatching"),
+            ),
           )
-            .bind(wr.id, unbound.id)
-            .run();
+          .orderBy(desc(schema.runs.created_at))
+          .limit(1)
+          .get();
+        if (unbound) {
+          await db
+            .update(schema.runs)
+            .set({ gh_run_id: wr.id })
+            .where(and(eq(schema.runs.id, unbound.id), isNull(schema.runs.gh_run_id)));
           run = { ...unbound, gh_run_id: wr.id };
         }
       }
@@ -148,16 +166,14 @@ webhookRoutes.post("/webhooks/github", async (c) => {
     const next = mapWorkflowRun(wr.status, wr.conclusion, run.state);
     if (next) {
       const terminal = next.state === "ended" || next.state === "failed";
-      await c.env.DB.prepare(
-        `UPDATE runs SET state = ?, end_reason = ?, ended_at = ? WHERE id = ?`,
-      )
-        .bind(
-          next.state,
-          next.endReason ?? run.end_reason,
-          terminal ? (run.ended_at ?? now) : run.ended_at,
-          run.id,
-        )
-        .run();
+      await db
+        .update(schema.runs)
+        .set({
+          state: next.state,
+          end_reason: next.endReason ?? run.end_reason,
+          ended_at: terminal ? (run.ended_at ?? now) : run.ended_at,
+        })
+        .where(eq(schema.runs.id, run.id));
     }
     return c.json({ ok: true });
   }

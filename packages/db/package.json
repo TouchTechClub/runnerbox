@@ -1,0 +1,25 @@
+{
+  "name": "@runnerbox/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:deploy": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@runnerbox/shared": "*",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "drizzle-kit": "1.0.0-rc.4",
+    "typescript": "catalog:"
+  }
+}
