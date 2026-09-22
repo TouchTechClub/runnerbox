@@ -13,7 +13,7 @@ import {
   TriangleAlert,
   Wrench,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,79 +68,6 @@ function PageHeader() {
         {me.data ? `${greeting()}, ${me.data.login} — ` : ""}
         your sims run on GitHub Actions in your own repo.
       </p>
-    </div>
-  );
-}
-
-// ---- KPI stat cards ----
-
-function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-1 p-4">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <span className="font-mono text-lg tabular-nums">{value}</span>
-        {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function StatsRow() {
-  const current = useCurrentRun();
-  const now = useNow();
-  const run = current.data?.run ?? null;
-
-  if (current.isLoading) {
-    return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {["a", "b", "c", "d"].map((k) => (
-          <Skeleton key={k} className="h-[92px] rounded-lg" />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatCard
-        label="Run state"
-        value={
-          run ? (
-            <RunStateBadge state={run.state} />
-          ) : (
-            <span className="text-muted-foreground">idle</span>
-          )
-        }
-        hint={run?.ghRunId ? `gh run #${run.ghRunId}` : "no active run"}
-      />
-      <StatCard
-        label="Active devices"
-        value={run ? run.activeDevices : "—"}
-        hint="iOS · Android multiplexed"
-      />
-      <StatCard
-        label="Android status"
-        value={
-          run ? (
-            run.androidReady ? (
-              <span className="text-success">ready</span>
-            ) : (
-              <span className="text-warning">preparing</span>
-            )
-          ) : (
-            "—"
-          )
-        }
-        hint={run && !run.androidReady ? "image still downloading" : undefined}
-      />
-      <StatCard
-        label="Time remaining"
-        value={run?.expiresAt ? formatDuration(run.expiresAt - now) : "—"}
-        hint={run ? "until auto-shutdown" : undefined}
-      />
     </div>
   );
 }
@@ -636,7 +563,6 @@ function Dashboard() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader />
-      <StatsRow />
       <Toolbar />
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
