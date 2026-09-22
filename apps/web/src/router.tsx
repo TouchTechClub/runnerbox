@@ -1,11 +1,17 @@
 import { createRouter } from "@tanstack/react-router";
-import { rootRoute } from "./routes/root";
+
+import { appRoute } from "./routes/app";
+import { dashboardRoute } from "./routes/dashboard";
+import { deviceRoute } from "./routes/device";
 import { indexRoute } from "./routes/index";
 import { onboardingRoute } from "./routes/onboarding";
-import { deviceRoute } from "./routes/device";
-import { dashboardRoute } from "./routes/dashboard";
+import { rootRoute } from "./routes/root";
 
-const routeTree = rootRoute.addChildren([indexRoute, onboardingRoute, deviceRoute, dashboardRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  deviceRoute,
+  appRoute.addChildren([dashboardRoute, onboardingRoute]),
+]);
 
 export const router = createRouter({
   routeTree,

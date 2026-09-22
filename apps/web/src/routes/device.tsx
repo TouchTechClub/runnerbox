@@ -1,8 +1,18 @@
 import { useMutation } from "@tanstack/react-query";
 import { createRoute } from "@tanstack/react-router";
+import { CheckCircle2, CircleAlert, Loader2, ShieldAlert, TerminalSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { authClient } from "../lib/auth-client";
-import { Spinner } from "../components/ui";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Notice } from "@/components/ui/notice";
+import { authClient } from "@/lib/auth-client";
 import { rootRoute } from "./root";
 
 type DeviceSearch = { user_code?: string };
@@ -62,55 +72,86 @@ function DevicePage() {
   }, [user_code]);
 
   return (
-    <div className="card">
-      <h2>CLI authorization</h2>
-      <div className="card-body">
-        {!user_code ? (
-          <div className="notice error">
-            Missing device code. Run <code>runnerbox login</code> again and open the link it prints.
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden p-6">
+      <div className="bg-dot-grid pointer-events-none absolute inset-0 text-foreground/[0.06]" />
+      <Card className="relative w-full max-w-md">
+        <CardHeader>
+          <div className="mb-2 flex items-center gap-2 font-mono text-sm font-semibold">
+            <TerminalSquare className="size-4 text-primary" />
+            runnerbox
           </div>
-        ) : phase === "claiming" ? (
-          <Spinner label={`verifying code ${user_code}…`} />
-        ) : phase === "confirm" ? (
-          <>
-            <p>A device is asking to sign in to your RunnerBox account.</p>
-            <p className="mono big-code">{user_code}</p>
-            <p className="muted small">
-              Only approve if <strong>you</strong> just ran <code>runnerbox login</code> and this
-              code matches your terminal. Never approve a code someone else gave you.
+          <CardTitle>Authorize CLI</CardTitle>
+          <CardDescription>
+            A device is asking to sign in to your RunnerBox account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {!user_code ? (
+            <Notice variant="destructive">
+              <CircleAlert />
+              <span>
+                Missing device code. Run <code className="font-mono">runnerbox login</code> again
+                and open the link it prints.
+              </span>
+            </Notice>
+          ) : phase === "claiming" ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              verifying code <span className="font-mono">{user_code}</span>…
             </p>
-            <div className="gap mt">
-              <button
-                type="button"
-                className="btn primary"
-                disabled={decide.isPending}
-                onClick={() => decide.mutate({ code: user_code, approve: true })}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                className="btn"
-                disabled={decide.isPending}
-                onClick={() => decide.mutate({ code: user_code, approve: false })}
-              >
-                Deny
-              </button>
-            </div>
-          </>
-        ) : phase === "done" ? (
-          <div className="notice info">
-            ✅ CLI authorized — return to your terminal. You can close this tab.
-          </div>
-        ) : phase === "denied" ? (
-          <div className="notice info">Request denied. You can close this tab.</div>
-        ) : (
-          <div className="notice error">
-            {error ?? "Something went wrong."} The code may have expired — run{" "}
-            <code>runnerbox login</code> again.
-          </div>
-        )}
-      </div>
+          ) : phase === "confirm" ? (
+            <>
+              <div className="rounded-md border border-border bg-muted/40 py-4 text-center font-mono text-2xl font-semibold tracking-[0.2em]">
+                {user_code}
+              </div>
+              <Notice variant="warning">
+                <ShieldAlert />
+                <span>
+                  Only approve if <strong>you</strong> just ran{" "}
+                  <code className="font-mono">runnerbox login</code> and this code matches your
+                  terminal. Never approve a code someone else gave you.
+                </span>
+              </Notice>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ code: user_code, approve: true })}
+                >
+                  {decide.isPending ? <Loader2 className="animate-spin" /> : null}
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ code: user_code, approve: false })}
+                >
+                  Deny
+                </Button>
+              </div>
+            </>
+          ) : phase === "done" ? (
+            <Notice variant="info">
+              <CheckCircle2 className="text-primary" />
+              <span>CLI authorized — return to your terminal. You can close this tab.</span>
+            </Notice>
+          ) : phase === "denied" ? (
+            <Notice>
+              <CircleAlert />
+              <span>Request denied. You can close this tab.</span>
+            </Notice>
+          ) : (
+            <Notice variant="destructive">
+              <CircleAlert />
+              <span>
+                {error ?? "Something went wrong."} The code may have expired — run{" "}
+                <code className="font-mono">runnerbox login</code> again.
+              </span>
+            </Notice>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
