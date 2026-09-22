@@ -8,16 +8,17 @@ Everything needed to go from this repo to production. Order matters — GitHub A
 
 Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 
-| Field | Value |
-|---|---|
-| Homepage URL | `https://runnerbox.dev` |
-| Callback URL | `https://api.runnerbox.dev/api/auth/callback/github` |
-| Setup URL | `https://runnerbox.dev/onboarding` (redirect on install ✓) |
-| Webhook URL | `https://api.runnerbox.dev/webhooks/github` |
-| Webhook secret | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
-| Request user authorization (OAuth) during installation | ✓ enabled |
+| Field                                                  | Value                                                      |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
+| Homepage URL                                           | `https://runnerbox.dev`                                    |
+| Callback URL                                           | `https://api.runnerbox.dev/api/auth/callback/github`       |
+| Setup URL                                              | `https://runnerbox.dev/onboarding` (redirect on install ✓) |
+| Webhook URL                                            | `https://api.runnerbox.dev/webhooks/github`                |
+| Webhook secret                                         | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
+| Request user authorization (OAuth) during installation | ✓ enabled                                                  |
 
 **Permissions (Repository):**
+
 - `Contents` → Read & write
 - `Actions` → Read & write
 - `Secrets` → Read & write
@@ -26,17 +27,19 @@ Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 **Subscribe to events:** `installation`, `installation_repositories`, `workflow_run`
 
 **Collect after creation:**
+
 - App ID → `GITHUB_APP_ID`
-- OAuth Client ID + Client secret (App page → "Client secrets") → `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` *(these double as the better-auth GitHub provider)*
+- OAuth Client ID + Client secret (App page → "Client secrets") → `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` _(these double as the better-auth GitHub provider)_
 - Generate a **Private key** (PEM download) → `GITHUB_APP_PRIVATE_KEY`
 
-> Local domains work for dev too — create a *second* dev App with callback `http://localhost:8787/api/auth/callback/github` if you want full auth locally.
+> Local domains work for dev too — create a _second_ dev App with callback `http://localhost:8787/api/auth/callback/github` if you want full auth locally.
 
 ---
 
 ## 2. Cloudflare
 
 One-time:
+
 ```bash
 cd packages/infra
 bunx alchemy profile edit        # or export CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
@@ -84,10 +87,10 @@ bun run deploy                   # in packages/infra (or root)
 
 Default deploy lands on `*.workers.dev` / `*.pages.dev`-style URLs. For the real product:
 
-| Domain | Points to |
-|---|---|
-| `runnerbox.dev` | `runnerbox-web` website |
-| `api.runnerbox.dev` | `runnerbox-api` worker |
+| Domain              | Points to               |
+| ------------------- | ----------------------- |
+| `runnerbox.dev`     | `runnerbox-web` website |
+| `api.runnerbox.dev` | `runnerbox-api` worker  |
 
 Add as custom domains in the CF dashboard (or `Cloudflare.Domain` resources in `alchemy.run.ts`), then set `APP_URL=https://runnerbox.dev` and update `PROD_API_URL` in `packages/shared/src/constants.ts` + `API_URL` var → `https://api.runnerbox.dev`, redeploy.
 
@@ -153,16 +156,16 @@ bun run dev:web           # vite :5173, proxies /api/auth + /v1 → :8787
 
 ## Env var reference (API worker)
 
-| Var | Source | Purpose |
-|---|---|---|
-| `GITHUB_APP_ID` | App settings | installation tokens |
-| `GITHUB_APP_PRIVATE_KEY` | App → private key (PEM) | App JWT signing |
-| `GITHUB_WEBHOOK_SECRET` | you generate | `X-Hub-Signature-256` verify |
-| `GITHUB_CLIENT_ID` | App → OAuth | better-auth github provider |
-| `GITHUB_CLIENT_SECRET` | App → client secrets | token exchange |
-| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | session signing |
-| `APP_URL` | web origin | CORS + trustedOrigins + redirects |
-| `API_URL` | worker URL (auto) | better-auth baseURL |
-| `DEMO_MODE` | — | dev-only seeding, `false` in prod |
+| Var                      | Source                    | Purpose                           |
+| ------------------------ | ------------------------- | --------------------------------- |
+| `GITHUB_APP_ID`          | App settings              | installation tokens               |
+| `GITHUB_APP_PRIVATE_KEY` | App → private key (PEM)   | App JWT signing                   |
+| `GITHUB_WEBHOOK_SECRET`  | you generate              | `X-Hub-Signature-256` verify      |
+| `GITHUB_CLIENT_ID`       | App → OAuth               | better-auth github provider       |
+| `GITHUB_CLIENT_SECRET`   | App → client secrets      | token exchange                    |
+| `BETTER_AUTH_SECRET`     | `openssl rand -base64 32` | session signing                   |
+| `APP_URL`                | web origin                | CORS + trustedOrigins + redirects |
+| `API_URL`                | worker URL (auto)         | better-auth baseURL               |
+| `DEMO_MODE`              | —                         | dev-only seeding, `false` in prod |
 
 Bindings (auto-provisioned by alchemy): `DB` (D1), `KV`.
