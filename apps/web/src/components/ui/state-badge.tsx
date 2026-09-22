@@ -10,13 +10,7 @@ type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
 /** Small colored dot used inside status badges. */
 function Dot({ className, pulse = false }: { className?: string; pulse?: boolean }) {
   return (
-    <span
-      className={cn(
-        "size-1.5 rounded-full bg-current",
-        pulse && "animate-pulse",
-        className,
-      )}
-    />
+    <span className={cn("size-1.5 rounded-full bg-current", pulse && "animate-pulse", className)} />
   );
 }
 

@@ -13,13 +13,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Notice } from "@/components/ui/notice";
 import { RepoStateBadge } from "@/components/ui/state-badge";
 import { Terminal, TermLine } from "@/components/ui/terminal";
@@ -272,7 +266,10 @@ function Progress() {
         <CardContent className="flex flex-col gap-4">
           <ul className="flex flex-col gap-2.5 text-sm">
             {[
-              { label: "Workflow committed to default branch", done: ok || repo.state === "pending_pr" },
+              {
+                label: "Workflow committed to default branch",
+                done: ok || repo.state === "pending_pr",
+              },
               { label: "RUNNERBOX_TOKEN secret written", done: ok || repo.state === "pending_pr" },
               { label: "Installation verified", done: ok },
             ].map((item) => (
@@ -324,8 +321,8 @@ function Progress() {
                 <CheckCircle2 className="text-primary" />
                 <span>
                   Connected. The <code className="font-mono">runnerbox.yml</code> workflow is on
-                  your default branch and the{" "}
-                  <code className="font-mono">RUNNERBOX_TOKEN</code> secret is set.
+                  your default branch and the <code className="font-mono">RUNNERBOX_TOKEN</code>{" "}
+                  secret is set.
                 </span>
               </Notice>
               <div className="flex flex-col gap-2">
@@ -355,9 +352,8 @@ function Progress() {
             <Notice variant="destructive">
               <CircleAlert />
               <span>
-                Setup hit a problem (repo state:{" "}
-                <code className="font-mono">{repo.state}</code>). Try again from the dashboard, or
-                re-run onboarding.
+                Setup hit a problem (repo state: <code className="font-mono">{repo.state}</code>).
+                Try again from the dashboard, or re-run onboarding.
               </span>
             </Notice>
           ) : null}
@@ -397,11 +393,7 @@ function Onboarding() {
         </p>
       </div>
 
-      {step === "progress" ? (
-        <Progress />
-      ) : (
-        <InstallAndPick onPicked={() => setStep("progress")} />
-      )}
+      {step === "progress" ? <Progress /> : <InstallAndPick onPicked={() => setStep("progress")} />}
     </div>
   );
 }

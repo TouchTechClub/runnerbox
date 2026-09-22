@@ -47,9 +47,7 @@ function TableCell({ className, ...props }: ComponentProps<"td">) {
 }
 
 function TableCaption({ className, ...props }: ComponentProps<"caption">) {
-  return (
-    <caption className={cn("mt-4 text-sm text-muted-foreground", className)} {...props} />
-  );
+  return <caption className={cn("mt-4 text-sm text-muted-foreground", className)} {...props} />;
 }
 
 export { Table, TableHeader, TableBody, TableCaption, TableCell, TableHead, TableRow };

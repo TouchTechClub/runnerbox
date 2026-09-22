@@ -17,13 +17,7 @@ import { useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Notice } from "@/components/ui/notice";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -80,15 +74,7 @@ function PageHeader() {
 
 // ---- KPI stat cards ----
 
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: ReactNode;
-}) {
+function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 p-4">
@@ -121,7 +107,13 @@ function StatsRow() {
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <StatCard
         label="Run state"
-        value={run ? <RunStateBadge state={run.state} /> : <span className="text-muted-foreground">idle</span>}
+        value={
+          run ? (
+            <RunStateBadge state={run.state} />
+          ) : (
+            <span className="text-muted-foreground">idle</span>
+          )
+        }
         hint={run?.ghRunId ? `gh run #${run.ghRunId}` : "no active run"}
       />
       <StatCard
@@ -486,9 +478,7 @@ function LiveRunPanel() {
           <CardTitle>Live run</CardTitle>
           <CardDescription className="flex items-center gap-2">
             <RunStateBadge state={run.state} />
-            {run.ghRunId ? (
-              <span className="font-mono text-xs">gh run #{run.ghRunId}</span>
-            ) : null}
+            {run.ghRunId ? <span className="font-mono text-xs">gh run #{run.ghRunId}</span> : null}
           </CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={() => setConfirmStop(true)}>
@@ -529,8 +519,8 @@ function LiveRunPanel() {
                 </span>
               </TermLine>
               <TermLine>
-                <span className="text-zinc-500">agent-device</span> connect proxy
-                --daemon-base-url {run.tunnelUrl}/agent-device
+                <span className="text-zinc-500">agent-device</span> connect proxy --daemon-base-url{" "}
+                {run.tunnelUrl}/agent-device
               </TermLine>
             </Terminal>
             <div className="flex gap-2">
@@ -538,11 +528,7 @@ function LiveRunPanel() {
                 {copied ? <Check /> : <Copy />}
                 {copied ? "Copied" : "Copy connect command"}
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setRevealToken((v) => !v)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setRevealToken((v) => !v)}>
                 {revealToken ? <EyeOff /> : <Eye />}
                 {revealToken ? "Hide token" : "Reveal token"}
               </Button>

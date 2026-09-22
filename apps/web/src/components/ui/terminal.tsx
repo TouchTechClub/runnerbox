@@ -6,7 +6,12 @@ import { cn } from "@/lib/utils";
  * Fake terminal block — always dark (a terminal is dark regardless of theme).
  * Lines are passed as children; use <TermLine> for prompt/comment styling.
  */
-function Terminal({ className, title = "terminal", children, ...props }: ComponentProps<"div"> & { title?: string }) {
+function Terminal({
+  className,
+  title = "terminal",
+  children,
+  ...props
+}: ComponentProps<"div"> & { title?: string }) {
   return (
     <div
       className={cn(

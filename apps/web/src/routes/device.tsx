@@ -4,13 +4,7 @@ import { CheckCircle2, CircleAlert, Loader2, ShieldAlert, TerminalSquare } from 
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Notice } from "@/components/ui/notice";
 import { authClient } from "@/lib/auth-client";
 import { rootRoute } from "./root";

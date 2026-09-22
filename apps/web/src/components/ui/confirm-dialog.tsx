@@ -39,12 +39,7 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={busy}
-            onClick={onConfirm}
-          >
+          <Button type="button" variant="destructive" disabled={busy} onClick={onConfirm}>
             {busy ? <Loader2 className="animate-spin" /> : null}
             {confirmLabel}
           </Button>
