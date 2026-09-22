@@ -1,0 +1,32 @@
+<!doctype html>
+<html><body>
+<p>Creating the runnerbox GitHub App… (auto-submitting)</p>
+<form id="f" method="post" action="https://github.com/settings/apps/new">
+  <input type="hidden" name="manifest" id="m">
+</form>
+<script>
+const manifest = {
+  "name": "runnerbox",
+  "url": "https://runnerbox.dpdns.org",
+  "hook_attributes": {
+    "url": "https://api.runnerbox.dpdns.org/webhooks/github",
+    "active": true
+  },
+  "redirect_url": "https://api.runnerbox.dpdns.org/healthz",
+  "callback_urls": ["https://api.runnerbox.dpdns.org/api/auth/callback/github"],
+  "setup_url": "https://runnerbox.dpdns.org/onboarding",
+  "setup_on_update": true,
+  "public": true,
+  "default_permissions": {
+    "contents": "write",
+    "actions": "write",
+    "secrets": "write",
+    "metadata": "read"
+  },
+  "default_events": ["installation", "installation_repositories", "workflow_run"],
+  "request_oauth_on_install": true
+};
+document.getElementById("m").value = JSON.stringify(manifest);
+document.getElementById("f").submit();
+</script>
+</body></html>
