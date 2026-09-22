@@ -1,0 +1,58 @@
+name: publish-cli
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 0.1.1) — bumps apps/cli/package.json"
+        required: true
+  push:
+    tags: ["cli-v*"]
+
+permissions:
+  id-token: write # required for npm trusted publishing (OIDC → no token)
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm # optional — matches a GH environment if you gate releases
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22 # npm ≥11.5.1 required for trusted publishing
+          registry-url: https://registry.npmjs.org
+
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Set version (manual dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          cd apps/cli
+          npm version "${{ inputs.version }}" --no-git-tag-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "release(cli): v${{ inputs.version }}"
+          git tag "cli-v${{ inputs.version }}"
+          git push origin HEAD:main --tags
+
+      - name: Verify tag version matches (tag trigger)
+        if: github.event_name == 'push'
+        run: |
+          TAG_VER="${GITHUB_REF_NAME#cli-v}"
+          PKG_VER=$(jq -r .version apps/cli/package.json)
+          if [ "$TAG_VER" != "$PKG_VER" ]; then
+            echo "Tag cli-v$TAG_VER != package.json $PKG_VER"; exit 1
+          fi
+
+      - name: Build
+        run: bun run --cwd apps/cli build
+
+      - name: Publish to npm (trusted publishing + provenance)
+        run: cd apps/cli && npm publish --provenance --access public

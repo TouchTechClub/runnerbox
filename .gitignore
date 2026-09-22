@@ -9,3 +9,7 @@ build/
 *.tsbuildinfo
 .DS_Store
 coverage/
+
+# alchemy state + env (may contain secrets)
+.alchemy/
+.env

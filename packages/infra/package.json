@@ -13,6 +13,7 @@
     "@cloudflare/workers-types": "catalog:",
     "alchemy": "2.0.0-beta.79",
     "effect": "4.0.0-rc.115",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@effect/platform-bun": "4.0.0-rc.115"
   }
 }
