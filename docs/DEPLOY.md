@@ -16,6 +16,7 @@ Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 | Webhook URL                                            | `https://api.runnerbox.dpdns.org/webhooks/github`                |
 | Webhook secret                                         | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
 | Request user authorization (OAuth) during installation | ✓ enabled                                                  |
+| Description (markdown, shown on install page) | Tells users: **install on a NEW, EMPTY repository only** — see `scripts/runnerbox-app-manifest.html` |
 
 **Permissions (Repository):**
 
@@ -24,7 +25,7 @@ Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 - `Secrets` → Read & write
 - `Metadata` → Read (automatic)
 
-**Subscribe to events:** `installation`, `installation_repositories`, `workflow_run`
+**Subscribe to events:** `workflow_run` (+ `installation` / `installation_repositories` — these are account-level events every app receives implicitly; they're not selectable in the manifest but the webhook deliveries still arrive at our endpoint)
 
 **Collect after creation:**
 
