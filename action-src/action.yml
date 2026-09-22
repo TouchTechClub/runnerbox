@@ -1,6 +1,6 @@
-# GENERATED FILE — rendered from action.yml.template by release.sh.
-# The sha256 below is a PLACEHOLDER until the first real release is cut;
-# run ./release.sh <tag> to render the real digest.
+# runnerbox composite action — RENDERED from this template by release.sh.
+# Do not edit action.yml directly; edit this file and run ./release.sh to
+# re-render with the sha256 of the release tarball.
 name: runnerbox
 description: Boot agent-device proxy + cloudflared tunnel on this macOS runner and register it with the runnerbox API.
 branding:
@@ -13,7 +13,7 @@ inputs:
   api_url:
     description: runnerbox API base URL (override for staging).
     required: false
-    default: "https://api.runnerbox.dpdns.org"
+    default: "https://api.runnerbox.dev"
   version:
     description: Release tag of the runnerbox-agent tarball to download.
     required: false
@@ -29,8 +29,8 @@ runs:
       run: |
         set -euo pipefail
         TARBALL=runnerbox-agent-darwin-arm64.tar.gz
-        curl -fsSL "https://github.com/runnerbox/runnerbox/releases/download/${{ inputs.version }}/$TARBALL" -o "$TARBALL"
-        echo "0000000000000000000000000000000000000000000000000000000000000000  $TARBALL" | shasum -a 256 -c -
+        curl -fsSL "https://github.com/TouchTechClub/runnerbox/releases/download/${{ inputs.version }}/$TARBALL" -o "$TARBALL"
+        echo "b08d2580e6a30af1acfcbcb81da6dcf55317a30807f2726bd59b55194fa70fff  $TARBALL" | shasum -a 256 -c -
         tar xzf "$TARBALL"
         chmod +x ./runnerbox-agent
         ./runnerbox-agent
