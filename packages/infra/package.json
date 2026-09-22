@@ -1,7 +1,7 @@
 {
   "name": "@runnerbox/infra",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "deploy": "alchemy deploy ./alchemy.run.ts",
@@ -11,8 +11,8 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "typescript": "catalog:",
     "alchemy": "2.0.0-beta.79",
-    "effect": "4.0.0-rc.115"
+    "effect": "4.0.0-rc.115",
+    "typescript": "catalog:"
   }
 }

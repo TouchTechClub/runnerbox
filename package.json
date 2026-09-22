@@ -1,8 +1,7 @@
 {
   "name": "runnerbox",
-  "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "private": true,
   "workspaces": {
     "packages": [
       "apps/*",
@@ -17,6 +16,7 @@
       "react-dom": "^18.3.1"
     }
   },
+  "type": "module",
   "scripts": {
     "typecheck": "for d in packages/shared packages/db packages/agent apps/api apps/cli apps/web; do echo \"── $d\"; (bun run --cwd $d typecheck) || exit 1; done",
     "check": "oxlint && oxfmt --check",
