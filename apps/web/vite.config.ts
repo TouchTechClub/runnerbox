@@ -7,6 +7,9 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Allow previews through trycloudflare quick tunnels (and any other host)
+    // in dev — the dev server is never publicly exposed otherwise.
+    allowedHosts: true,
     proxy: {
       // Same-origin in dev: vite proxies auth + API to `wrangler dev`.
       "/api/auth": { target: DEV_API_TARGET, changeOrigin: true },

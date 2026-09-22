@@ -16,4 +16,6 @@ export interface Env {
   API_URL: string;
   /** Web app origin — used for CORS, OAuth redirects and CLI device verify URLs. */
   APP_URL: string;
+  /** Dev-only: "true" bypasses user auth and serves seeded demo data. */
+  DEMO_MODE?: string;
 }

@@ -22,6 +22,22 @@ export type AppContext = { Bindings: Env; Variables: AppVariables };
  * GitHub account's id/token (account row, providerId = 'github').
  */
 export const requireUser = createMiddleware<AppContext>(async (c, next) => {
+  // Dev-only escape hatch: DEMO_MODE serves a seeded fake user/repo/run so the
+  // dashboard can be previewed without GitHub credentials. Never set in prod.
+  if (c.env.DEMO_MODE === "true") {
+    await seedDemo(c.env);
+    c.set("user", {
+      id: DEMO_USER_ID,
+      githubUserId: 1,
+      login: "demo-user",
+      avatarUrl: "https://avatars.githubusercontent.com/u/9919?v=4",
+      githubAccessToken: null,
+      createdAtMs: Date.now() - 30 * 24 * 3600 * 1000,
+    });
+    await next();
+    return;
+  }
+
   const auth = createAuth(c.env);
   const session = await auth.api.getSession({ headers: c.req.raw.headers }).catch(() => null);
   if (!session) {
@@ -61,3 +77,69 @@ export const requireRunnerToken = createMiddleware<AppContext>(async (c, next) =
   c.set("repo", repo);
   await next();
 });
+
+// ---------------------------------------------------------------------------
+// DEMO_MODE — seeded preview data (dev only, never set in prod)
+// ---------------------------------------------------------------------------
+
+const DEMO_USER_ID = "demo-user-0001";
+let demoSeeded = false;
+
+async function seedDemo(env: Env): Promise<void> {
+  if (demoSeeded) return;
+  // Don't latch until inserts succeed — a failed seed (e.g. unmigrated DB)
+  // must retry on the next request.
+  const db = createDb(env);
+  const now = Math.floor(Date.now() / 1000);
+  // Fake repo + one live run with a tunnel/token so the dashboard renders
+  // its full "live" state. Tunnel URL/token are obviously fake.
+  const { repos, runs, user } = await import("@runnerbox/db/schema");
+  // repos.user_id FKs to better-auth's "user" table — seed a demo user first.
+  const ms = Date.now();
+  await db
+    .insert(user)
+    .values({
+      id: DEMO_USER_ID,
+      name: "demo-user",
+      email: "demo@runnerbox.dev",
+      emailVerified: true,
+      image: "https://avatars.githubusercontent.com/u/9919?v=4",
+      login: "demo-user",
+      createdAt: new Date(ms - 30 * 86400_000),
+      updatedAt: new Date(ms),
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(repos)
+    .values({
+      user_id: DEMO_USER_ID,
+      repo_id: 123456,
+      full_name: "demo-user/my-ios-app",
+      private: 0,
+      default_branch: "main",
+      installation_id: 900001,
+      state: "ok",
+      runnerbox_token_hash: "demo",
+      created_at: now - 86400 * 3,
+    })
+    .onConflictDoNothing();
+  await db
+    .insert(runs)
+    .values({
+      id: "demo-run-0001",
+      user_id: DEMO_USER_ID,
+      repo_full_name: "demo-user/my-ios-app",
+      gh_run_id: 18234567890,
+      state: "live",
+      tunnel_url: "https://demo-tunnel.trycloudflare.com",
+      daemon_token: "demo_daemon_token_9f8e7d6c5b",
+      active_devices: 1,
+      android_ready: 0,
+      created_at: now - 900,
+      dispatched_at: now - 900,
+      live_at: now - 720,
+      expires_at: now + 5 * 3600,
+    })
+    .onConflictDoNothing();
+  demoSeeded = true;
+}
