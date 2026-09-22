@@ -1,0 +1,168 @@
+# RunnerBox — Deployment Setup
+
+Everything needed to go from this repo to production. Order matters — GitHub App first (it produces most of the env values).
+
+---
+
+## 1. GitHub App
+
+Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
+
+| Field | Value |
+|---|---|
+| Homepage URL | `https://runnerbox.dev` |
+| Callback URL | `https://api.runnerbox.dev/api/auth/callback/github` |
+| Setup URL | `https://runnerbox.dev/onboarding` (redirect on install ✓) |
+| Webhook URL | `https://api.runnerbox.dev/webhooks/github` |
+| Webhook secret | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
+| Request user authorization (OAuth) during installation | ✓ enabled |
+
+**Permissions (Repository):**
+- `Contents` → Read & write
+- `Actions` → Read & write
+- `Secrets` → Read & write
+- `Metadata` → Read (automatic)
+
+**Subscribe to events:** `installation`, `installation_repositories`, `workflow_run`
+
+**Collect after creation:**
+- App ID → `GITHUB_APP_ID`
+- OAuth Client ID + Client secret (App page → "Client secrets") → `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` *(these double as the better-auth GitHub provider)*
+- Generate a **Private key** (PEM download) → `GITHUB_APP_PRIVATE_KEY`
+
+> Local domains work for dev too — create a *second* dev App with callback `http://localhost:8787/api/auth/callback/github` if you want full auth locally.
+
+---
+
+## 2. Cloudflare
+
+One-time:
+```bash
+cd packages/infra
+bunx alchemy profile edit        # or export CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID
+cp .env.example .env             # fill values below
+```
+
+### `packages/infra/.env`
+
+```bash
+# --- from GitHub App ---
+GITHUB_APP_ID=1234567
+GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----"
+GITHUB_WEBHOOK_SECRET=          # openssl rand -hex 32
+GITHUB_CLIENT_ID=Iv1.xxxxxxxxxxxxxxxx
+GITHUB_CLIENT_SECRET=           # openssl rand -hex 32 works for BETTER_AUTH_SECRET too
+
+# --- generated ---
+BETTER_AUTH_SECRET=             # openssl rand -base64 32
+
+# --- after first deploy (see §3) ---
+APP_URL=                        # leave empty for first deploy → set to web URL → redeploy
+
+# --- never in prod ---
+DEMO_MODE=false
+```
+
+Alchemy provisions automatically: D1 `runnerbox-db` (migrations from `packages/db/migrations` apply on deploy), KV `runnerbox-kv`, Worker `runnerbox-api`, Website `runnerbox-web`.
+
+```bash
+bun run deploy                   # in packages/infra (or root)
+# → prints api + web URLs
+```
+
+### Chicken-and-egg (one-time)
+
+`APP_URL` must equal the web origin for CORS + OAuth, but it's only known after deploy. So:
+
+1. `bun run deploy` → note the printed `web` URL
+2. Set `APP_URL=https://<web-url>` in `.env` (or add custom domain first — below)
+3. `bun run deploy` again
+
+---
+
+## 3. Domains
+
+Default deploy lands on `*.workers.dev` / `*.pages.dev`-style URLs. For the real product:
+
+| Domain | Points to |
+|---|---|
+| `runnerbox.dev` | `runnerbox-web` website |
+| `api.runnerbox.dev` | `runnerbox-api` worker |
+
+Add as custom domains in the CF dashboard (or `Cloudflare.Domain` resources in `alchemy.run.ts`), then set `APP_URL=https://runnerbox.dev` and update `PROD_API_URL` in `packages/shared/src/constants.ts` + `API_URL` var → `https://api.runnerbox.dev`, redeploy.
+
+**GitHub App callback + webhook URLs** must match the final API domain — update them in App settings if you add `api.runnerbox.dev`.
+
+---
+
+## 4. CLI publish
+
+```bash
+cd apps/cli
+npm publish --access public     # verify the `runnerbox` name is free first
+```
+
+CLI defaults to `PROD_API_URL`; users can override via `RUNNERBOX_API_URL` / `RUNNERBOX_WEB_URL` env.
+
+---
+
+## 5. Action repo + agent release
+
+The committed workflow uses `runnerbox/runner@v1` — needs a real repo:
+
+```bash
+# 1. Create github.com/runnerbox/runnerbox, push this monorepo there
+git remote add origin git@github.com:runnerbox/runnerbox.git && git push -u origin main
+
+# 2. Create github.com/runnerbox/runner, push action-src/ contents there
+#    (action.yml at repo root), tag it:
+cd action-src && git init && git add -A && git commit -m "v1" \
+  && git remote add origin git@github.com:runnerbox/runner.git && git push -u origin main \
+  && git tag v1 && git push origin v1
+
+# 3. Build + publish the agent release (darwin-arm64 — run on a Mac or macOS CI)
+cd action-src && ./release.sh 1.0.0
+#    → builds packages/agent, tars, computes sha256, re-renders action.yml,
+#      prints gh release commands for runnerbox/runnerbox/releases/tag/v1
+```
+
+---
+
+## 6. Local development
+
+`apps/api/.dev.vars` (gitignored):
+
+```bash
+APP_URL=http://localhost:5173
+API_URL=http://localhost:8787
+GITHUB_APP_ID=            # dev app
+GITHUB_APP_PRIVATE_KEY=
+GITHUB_WEBHOOK_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+BETTER_AUTH_SECRET=       # any 32+ char string
+DEMO_MODE=true            # bypasses auth, seeds fake repo+live run — preview only
+```
+
+```bash
+bun run dev:api           # wrangler dev :8787 (auto-applies drizzle migrations)
+bun run dev:web           # vite :5173, proxies /api/auth + /v1 → :8787
+```
+
+---
+
+## Env var reference (API worker)
+
+| Var | Source | Purpose |
+|---|---|---|
+| `GITHUB_APP_ID` | App settings | installation tokens |
+| `GITHUB_APP_PRIVATE_KEY` | App → private key (PEM) | App JWT signing |
+| `GITHUB_WEBHOOK_SECRET` | you generate | `X-Hub-Signature-256` verify |
+| `GITHUB_CLIENT_ID` | App → OAuth | better-auth github provider |
+| `GITHUB_CLIENT_SECRET` | App → client secrets | token exchange |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` | session signing |
+| `APP_URL` | web origin | CORS + trustedOrigins + redirects |
+| `API_URL` | worker URL (auto) | better-auth baseURL |
+| `DEMO_MODE` | — | dev-only seeding, `false` in prod |
+
+Bindings (auto-provisioned by alchemy): `DB` (D1), `KV`.

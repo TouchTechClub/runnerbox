@@ -32,11 +32,6 @@ bun run dev:web          # vite dev on :5173, proxies /v1 → :8787
 bun run --cwd apps/cli dev -- <command>   # run CLI from source
 ```
 
-## Deploy checklist (first time)
+## Deploy
 
-- [ ] Register the GitHub App (contents/secrets/actions write; webhook → `POST /webhooks/github`; user OAuth)
-- [ ] `wrangler d1 create` + `wrangler kv create`, fill IDs in `apps/api/wrangler.toml`, `bun run --cwd apps/api db:migrate`
-- [ ] `wrangler secret put` GITHUB_APP_PRIVATE_KEY / GITHUB_WEBHOOK_SECRET / GITHUB_CLIENT_SECRET / BETTER_AUTH_SECRET
-- [ ] Create `runnerbox/runner` repo, publish `action-src/` there, tag `v1`
-- [ ] `action-src/release.sh <version>` → build agent, publish release tarball on `runnerbox/runnerbox`
-- [ ] `npm publish` in `apps/cli`, deploy `apps/web` to Pages
+Full setup: [docs/DEPLOY.md](docs/DEPLOY.md) — GitHub App creation, Alchemy infra (`bun run deploy` in `packages/infra`), custom domains, CLI publish, action repo + agent release.
