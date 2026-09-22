@@ -8,6 +8,7 @@
 const manifest = {
   "name": "runnerbox",
   "url": "https://runnerbox.dpdns.org",
+  "description": "Boot free iOS simulators & Android emulators on your own GitHub Actions minutes, exposed to your machine as an `agent-device` remote proxy.\n\n**Install this app on a NEW, EMPTY repository only.** RunnerBox commits a workflow file and writes a secret to the repo — a dedicated repo keeps your real projects clean and avoids surprises on protected branches.",
   "hook_attributes": {
     "url": "https://api.runnerbox.dpdns.org/webhooks/github",
     "active": true
@@ -23,7 +24,7 @@ const manifest = {
     "secrets": "write",
     "metadata": "read"
   },
-  "default_events": ["installation", "installation_repositories", "workflow_run"],
+  "default_events": ["workflow_run"],
   "request_oauth_on_install": true
 };
 document.getElementById("m").value = JSON.stringify(manifest);
