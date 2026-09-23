@@ -133,13 +133,10 @@ jobs:
           mkdir -p ~/.alchemy/credentials/default
           printf '%s' "$ALCHEMY_STATE_STORE_CREDENTIALS" \
             > ~/.alchemy/credentials/default/cloudflare-state-store.json
-          mkdir -p ~/.alchemy/profiles
           printf '%s' '{"version":0,"profiles":{"default":{"Cloudflare":{"method":"env"}}}}' \
-            > ~/.alchemy/profiles/default.json 2>/dev/null || true
-          printf '%s' "$ALCHEMY_PROFILES_JSON" > ~/.alchemy/profiles.json
+            > ~/.alchemy/profiles.json
         env:
           ALCHEMY_STATE_STORE_CREDENTIALS: ${{ secrets.ALCHEMY_STATE_STORE_CREDENTIALS }}
-          ALCHEMY_PROFILES_JSON: ${{ secrets.ALCHEMY_PROFILES_JSON }}
       - name: Deploy
         run: cd packages/infra && bunx alchemy deploy --yes
       - name: Publish deploy status
