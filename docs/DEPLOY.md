@@ -8,15 +8,15 @@ Everything needed to go from this repo to production. Order matters — GitHub A
 
 Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 
-| Field                                                  | Value                                                      |
-| ------------------------------------------------------ | ---------------------------------------------------------- |
-| Homepage URL                                           | `https://runnerbox.dpdns.org`                                    |
-| Callback URL                                           | `https://api.runnerbox.dpdns.org/api/auth/callback/github`       |
-| Setup URL                                              | `https://runnerbox.dpdns.org/onboarding` (redirect on install ✓) |
-| Webhook URL                                            | `https://api.runnerbox.dpdns.org/webhooks/github`                |
-| Webhook secret                                         | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET` |
-| Request user authorization (OAuth) during installation | ✓ enabled                                                  |
-| Description (markdown, shown on install page) | Tells users: **install on a NEW, EMPTY repository only** — see `scripts/runnerbox-app-manifest.html` |
+| Field                                                  | Value                                                                                                |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| Homepage URL                                           | `https://runnerbox.dpdns.org`                                                                        |
+| Callback URL                                           | `https://api.runnerbox.dpdns.org/api/auth/callback/github`                                           |
+| Setup URL                                              | `https://runnerbox.dpdns.org/onboarding` (redirect on install ✓)                                     |
+| Webhook URL                                            | `https://api.runnerbox.dpdns.org/webhooks/github`                                                    |
+| Webhook secret                                         | generate: `openssl rand -hex 32` → `GITHUB_WEBHOOK_SECRET`                                           |
+| Request user authorization (OAuth) during installation | ✓ enabled                                                                                            |
+| Description (markdown, shown on install page)          | Tells users: **install on a NEW, EMPTY repository only** — see `scripts/runnerbox-app-manifest.html` |
 
 **Permissions (Repository):**
 
@@ -88,8 +88,8 @@ bun run deploy                   # in packages/infra (or root)
 
 Default deploy lands on `*.workers.dev` / `*.pages.dev`-style URLs. For the real product:
 
-| Domain              | Points to               |
-| ------------------- | ----------------------- |
+| Domain                    | Points to               |
+| ------------------------- | ----------------------- |
 | `runnerbox.dpdns.org`     | `runnerbox-web` website |
 | `api.runnerbox.dpdns.org` | `runnerbox-api` worker  |
 
@@ -164,27 +164,28 @@ quality (typecheck+lint) → agent build+GH release (macos) → alchemy deploy �
 
 **Secrets** (`production` environment for deploy job, `npm` environment for cli job, or repo-level — GH falls back):
 
-| Secret | Value |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | CF API token — Workers + D1 + KV + Pages edit perms |
-| `ALCHEMY_STATE_STORE_CREDENTIALS` | contents of `~/.alchemy/credentials/default/cloudflare-state-store.json` after your first local `alchemy deploy` |
-| `GITHUB_APP_ID` | `5036209` |
-| `GITHUB_APP_PRIVATE_KEY` | full PEM (literal newlines OK in secrets) |
-| `GITHUB_WEBHOOK_SECRET` | app webhook secret |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | app OAuth creds |
-| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
-| `RUNNER_ACTION_PAT` | fine-grained PAT, `TouchTechClub/runner` → Contents: write (lets CI push action.yml + retag v1) |
+| Secret                                      | Value                                                                                                            |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`                      | CF API token — Workers + D1 + KV + Pages edit perms                                                              |
+| `ALCHEMY_STATE_STORE_CREDENTIALS`           | contents of `~/.alchemy/credentials/default/cloudflare-state-store.json` after your first local `alchemy deploy` |
+| `GITHUB_APP_ID`                             | `5036209`                                                                                                        |
+| `GITHUB_APP_PRIVATE_KEY`                    | full PEM (literal newlines OK in secrets)                                                                        |
+| `GITHUB_WEBHOOK_SECRET`                     | app webhook secret                                                                                               |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | app OAuth creds                                                                                                  |
+| `BETTER_AUTH_SECRET`                        | `openssl rand -base64 32`                                                                                        |
+| `RUNNER_ACTION_PAT`                         | fine-grained PAT, `TouchTechClub/runner` → Contents: write (lets CI push action.yml + retag v1)                  |
 
 **Variables:**
 
-| Var | Value |
-|---|---|
-| `CLOUDFLARE_ACCOUNT_ID` | CF dashboard → account ID |
-| `APP_URL` | `https://runnerbox.dpdns.org` (or workers.dev URL until DNS lands) |
+| Var                     | Value                                                              |
+| ----------------------- | ------------------------------------------------------------------ |
+| `CLOUDFLARE_ACCOUNT_ID` | CF dashboard → account ID                                          |
+| `APP_URL`               | `https://runnerbox.dpdns.org` (or workers.dev URL until DNS lands) |
 
 ### npm trusted publisher
 
 npmjs.com → `runnerbox` package → Settings → Trusted Publisher:
+
 - Org: `TouchTechClub`, repo: `runnerbox`, workflow: `release.yml`, environment: `npm`
 
 ## Env var reference (API worker)

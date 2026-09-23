@@ -40,11 +40,11 @@ agent-device open <app> --platform ios
 
 ## Inputs
 
-| Input     | Required | Default                     | Description                                  |
-| --------- | -------- | --------------------------- | -------------------------------------------- |
-| `token`   | yes      | —                           | `RUNNERBOX_TOKEN` repo secret                |
+| Input     | Required | Default                           | Description                                  |
+| --------- | -------- | --------------------------------- | -------------------------------------------- |
+| `token`   | yes      | —                                 | `RUNNERBOX_TOKEN` repo secret                |
 | `api_url` | no       | `https://api.runnerbox.dpdns.org` | API base URL (staging override)              |
-| `version` | no       | `v1`                        | Release tag of the agent tarball to download |
+| `version` | no       | `v1`                              | Release tag of the agent tarball to download |
 
 ## What the step does
 
