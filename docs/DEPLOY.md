@@ -155,6 +155,38 @@ bun run dev:web           # vite :5173, proxies /api/auth + /v1 → :8787
 
 ---
 
+## 7. CI releases (tag → deploy everything)
+
+`.github/workflows/release.yml` — `git tag v0.2.0 && git push origin v0.2.0` runs:
+quality (typecheck+lint) → agent build+GH release (macos) → alchemy deploy → npm publish → TouchTechClub/runner action.yml update + `v1` retag.
+
+### GitHub repo → Settings → Secrets and variables → Actions
+
+**Secrets** (`production` environment for deploy job, `npm` environment for cli job, or repo-level — GH falls back):
+
+| Secret | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | CF API token — Workers + D1 + KV + Pages edit perms |
+| `ALCHEMY_STATE_STORE_CREDENTIALS` | contents of `~/.alchemy/credentials/default/cloudflare-state-store.json` after your first local `alchemy deploy` |
+| `GITHUB_APP_ID` | `5036209` |
+| `GITHUB_APP_PRIVATE_KEY` | full PEM (literal newlines OK in secrets) |
+| `GITHUB_WEBHOOK_SECRET` | app webhook secret |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | app OAuth creds |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
+| `RUNNER_ACTION_PAT` | fine-grained PAT, `TouchTechClub/runner` → Contents: write (lets CI push action.yml + retag v1) |
+
+**Variables:**
+
+| Var | Value |
+|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | CF dashboard → account ID |
+| `APP_URL` | `https://runnerbox.dpdns.org` (or workers.dev URL until DNS lands) |
+
+### npm trusted publisher
+
+npmjs.com → `runnerbox` package → Settings → Trusted Publisher:
+- Org: `TouchTechClub`, repo: `runnerbox`, workflow: `release.yml`, environment: `npm`
+
 ## Env var reference (API worker)
 
 | Var                      | Source                    | Purpose                           |

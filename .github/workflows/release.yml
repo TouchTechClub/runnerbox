@@ -130,7 +130,7 @@ jobs:
       # static secret seeded into ~/.alchemy (same pattern as s5code relay).
       - name: Seed alchemy state-store credentials
         run: |
-          mkdir -p ~/.alchemy/credentials/default
+          mkdir -p ~/.alchemy/credentials/default ~/.alchemy/profiles
           printf '%s' "$ALCHEMY_STATE_STORE_CREDENTIALS" \
             > ~/.alchemy/credentials/default/cloudflare-state-store.json
           printf '%s' '{"version":0,"profiles":{"default":{"Cloudflare":{"method":"env"}}}}' \
