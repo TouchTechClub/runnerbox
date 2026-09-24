@@ -221,7 +221,12 @@ jobs:
           git config user.name "runnerbox-ci"
           git config user.email "ci@runnerbox.dpdns.org"
           git add action.yml
-          git diff --cached --quiet && echo "action.yml unchanged" && exit 0
-          git commit -m "release: ${{ needs.preflight.outputs.tag }} (sha256 ${{ github.sha }})"
-          git push origin main
+          if ! git diff --cached --quiet; then
+            git commit -m "release: ${{ needs.preflight.outputs.tag }} (sha256 ${{ github.sha }})"
+            git push origin main
+          else
+            echo "action.yml unchanged"
+          fi
+          # Always retag — v1 must track the latest action.yml even when the
+          # file itself didn't change this release.
           git tag -f v1 && git push -f origin v1

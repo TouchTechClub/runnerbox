@@ -13,7 +13,7 @@ inputs:
   api_url:
     description: runnerbox API base URL (override for staging).
     required: false
-    default: "https://api.runnerbox.dev"
+    default: "https://api.runnerbox.dpdns.org"
   version:
     description: Release tag of the runnerbox-agent tarball to download.
     required: false
