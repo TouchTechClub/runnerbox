@@ -121,6 +121,8 @@ jobs:
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       # vars
       APP_URL: ${{ vars.APP_URL }}
+      API_URL: ${{ vars.API_URL }}
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
       DEMO_MODE: "false"
     steps:
       - uses: actions/checkout@v5

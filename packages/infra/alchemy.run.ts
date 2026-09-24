@@ -31,7 +31,10 @@ export const api = Cloudflare.Worker("runnerbox-api", {
     // Public origins — web URL is known only after the site deploys, so these
     // are patched by the stack below via secrets/vars on first deploy.
     APP_URL: Config.String("APP_URL").pipe(Config.withDefault("http://localhost:5173")),
-    API_URL: Cloudflare.Worker.URL,
+    // Canonical public URL of this worker (better-auth baseURL → OAuth
+    // callbacks). Defaults to the auto workers.dev URL; set API_URL to the
+    // custom domain once DNS lands.
+    API_URL: Config.String("API_URL").pipe(Config.withDefault(Cloudflare.Worker.URL)),
 
     GITHUB_APP_ID: Config.String("GITHUB_APP_ID"),
     GITHUB_APP_PRIVATE_KEY: Config.Redacted("GITHUB_APP_PRIVATE_KEY"),
@@ -65,7 +68,9 @@ export default Alchemy.Stack(
         notFoundHandling: "single-page-application",
       },
       env: {
-        VITE_API_URL: apiWorker.url.as<string>(),
+        VITE_API_URL: Config.String("VITE_API_URL").pipe(
+          Config.withDefault(apiWorker.url.as<Config.Config<string>>()),
+        ),
       },
       dev: {
         port: 5173,
