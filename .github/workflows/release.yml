@@ -113,11 +113,11 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
       ALCHEMY_TELEMETRY_DISABLED: "1"
       # app env — secrets
-      GITHUB_APP_ID: ${{ secrets.GITHUB_APP_ID }}
-      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
-      GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
-      GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
-      GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+      GITHUB_APP_ID: ${{ secrets.GH_APP_ID }}
+      GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      GITHUB_WEBHOOK_SECRET: ${{ secrets.GH_WEBHOOK_SECRET }}
+      GITHUB_CLIENT_ID: ${{ secrets.GH_CLIENT_ID }}
+      GITHUB_CLIENT_SECRET: ${{ secrets.GH_CLIENT_SECRET }}
       BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
       # vars
       APP_URL: ${{ vars.APP_URL }}
@@ -182,6 +182,9 @@ jobs:
           }
 
   # ---- update the public composite action ----
+  # Uses OUR GitHub App (installed on TouchTechClub/runner) to mint an
+  # installation token — no PAT needed. One-time: install the app on the
+  # runner repo (contents:write covers pushes).
   runner:
     needs: [preflight, agent]
     runs-on: ubuntu-latest
@@ -189,9 +192,16 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: runner-action
+      - uses: actions/create-github-app-token@v2
+        id: runner-token
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: TouchTechClub
+          repositories: runner
       - name: Push action.yml to TouchTechClub/runner + retag v1
         env:
-          GH_TOKEN: ${{ secrets.RUNNER_ACTION_PAT }}
+          GH_TOKEN: ${{ steps.runner-token.outputs.token }}
         run: |
           git clone --depth 1 https://x-access-token:${GH_TOKEN}@github.com/TouchTechClub/runner.git runner-repo
           cp runner-action.yml runner-repo/action.yml
