@@ -29,7 +29,14 @@ export function createAuth(env: Env) {
         clientSecret: env.GITHUB_CLIENT_SECRET,
         // Stash the GitHub login on user.login (additional field) — the
         // default `name` column gets GitHub's display name, not the handle.
-        mapProfileToUser: (profile) => ({ login: profile.login }),
+        // GitHub Apps can't use the user:email scope; if the app lacks the
+        // Email addresses permission (or the user hides all emails), both
+        // /user and /user/emails come back empty → email_not_found. Fall back
+        // to the noreply address so sign-in always succeeds.
+        mapProfileToUser: (profile) => ({
+          login: profile.login,
+          email: profile.email ?? `${profile.id}+${profile.login}@users.noreply.github.com`,
+        }),
       },
     },
     user: {
