@@ -17,7 +17,7 @@ export const API_URL = import.meta.env.VITE_API_URL ?? PROD_API_URL;
 
 export const GITHUB_APP_INSTALL_URL =
   import.meta.env.VITE_GITHUB_APP_INSTALL_URL ??
-  "https://github.com/apps/runnerbox/installations/new";
+  "https://github.com/apps/runnerbox-touchtechclub/installations/new";
 
 export class ApiError extends Error {
   constructor(
