@@ -165,7 +165,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22 # npm ≥11.5.1 required for trusted publishing
-          registry-url: https://registry.npmjs.org
+          # no registry-url: it writes a placeholder NODE_AUTH_TOKEN into
+          # .npmrc which shadows trusted-publishing OIDC and publish 404s.
       - run: bun install --frozen-lockfile
       - name: Sync CLI version to release
         run: |
