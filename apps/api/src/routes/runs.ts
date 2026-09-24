@@ -39,7 +39,8 @@ export const runRoutes = new Hono<AppContext>();
 // ---------------------------------------------------------------------------
 
 const DISPATCH_BIND_GRACE_SECONDS = 600; // unbound run older than this → failed
-const GH_CHECK_THROTTLE_SECONDS = 20;
+// Cloudflare KV enforces expirationTtl >= 60.
+const GH_CHECK_THROTTLE_SECONDS = 60;
 
 export function mapWorkflowRun(
   status: string | null,
