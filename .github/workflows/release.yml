@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write # deploy job publishes a commit status
   id-token: write # npm trusted publishing (OIDC)
 
 concurrency:
@@ -168,8 +169,14 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Sync CLI version to release
         run: |
-          cd apps/cli
-          npm version "${{ needs.preflight.outputs.version }}" --no-git-tag-version --allow-same-version
+          # npm can't parse `catalog:` deps (bun workspaces) — bump version directly.
+          node -e '
+            const fs = require("fs");
+            const p = "apps/cli/package.json";
+            const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+            pkg.version = "${{ needs.preflight.outputs.version }}";
+            fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+          '
       - run: bun run --cwd apps/cli build
       - name: Publish
         run: cd apps/cli && npm publish --provenance --access public
