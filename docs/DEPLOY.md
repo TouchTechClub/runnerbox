@@ -189,6 +189,15 @@ npmjs.com → `runnerbox` package → Settings → Trusted Publisher:
 
 - Org: `TouchTechClub`, repo: `runnerbox`, workflow: `release.yml`, environment: `npm`
 
+## Deploy gotchas (hit once, documented)
+
+- **CF token**: `Workers Editor` role alone cannot create worker scripts (`PUT /workers/scripts` → 403 while D1/KV succeed). Use the **Edit Cloudflare Workers** template or add `Workers Scripts → Edit` explicitly.
+- **State-store 401**: `~/.alchemy/credentials/default/cloudflare-state-store.json` must contain `accountId` matching `CLOUDFLARE_ACCOUNT_ID`. Creds minted before `accountId` existed (or for another account) trigger a re-derive that 401s on the state-store worker's refresh endpoint — delete/invalidate them (add `accountId`) or bootstrap fresh.
+- **vite ≥ 8**: `@alchemy.run/cloudflare-runtime` extends `vite.DevEnvironment` (vite 8 only). If `bun install` leaves a stale per-package `vite` symlink in `node_modules/.bun/<pkg>/node_modules/`, delete it and reinstall.
+- **`_redirects`**: don't ship a Pages-style `/* /index.html 200` file — workers static-assets validation rejects it as an infinite loop. `notFoundHandling: "single-page-application"` in `alchemy.run.ts` already provides SPA fallback.
+
+---
+
 ## Env var reference (API worker)
 
 | Var                      | Source                    | Purpose                           |
