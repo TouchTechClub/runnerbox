@@ -30,7 +30,7 @@ runs:
         set -euo pipefail
         TARBALL=runnerbox-agent-darwin-arm64.tar.gz
         curl -fsSL "https://github.com/TouchTechClub/runnerbox/releases/download/${{ inputs.version }}/$TARBALL" -o "$TARBALL"
-        echo "4c854c886328a3761c160875e7943a8b81e20f7b25dc554c079b2d89918c0ce7  $TARBALL" | shasum -a 256 -c -
+        echo "b08d2580e6a30af1acfcbcb81da6dcf55317a30807f2726bd59b55194fa70fff  $TARBALL" | shasum -a 256 -c -
         tar xzf "$TARBALL"
         chmod +x ./runnerbox-agent
         ./runnerbox-agent
