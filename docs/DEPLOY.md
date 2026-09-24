@@ -166,14 +166,15 @@ quality (typecheck+lint) → agent build+GH release (macos) → alchemy deploy �
 
 | Secret                                      | Value                                                                                                            |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`                      | CF API token — Workers + D1 + KV + Pages edit perms                                                              |
+| `CLOUDFLARE_API_TOKEN`                      | CF API token — Workers + D1 + KV + (zone DNS + Workers Routes for custom domains)                                |
 | `ALCHEMY_STATE_STORE_CREDENTIALS`           | contents of `~/.alchemy/credentials/default/cloudflare-state-store.json` after your first local `alchemy deploy` |
-| `GITHUB_APP_ID`                             | `5036209`                                                                                                        |
-| `GITHUB_APP_PRIVATE_KEY`                    | full PEM (literal newlines OK in secrets)                                                                        |
-| `GITHUB_WEBHOOK_SECRET`                     | app webhook secret                                                                                               |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | app OAuth creds                                                                                                  |
+| `GH_APP_ID`                                 | `5036209` — `GITHUB_` prefix is reserved, hence `GH_`                                                            |
+| `GH_APP_PRIVATE_KEY`                        | full PEM (literal newlines OK in secrets)                                                                        |
+| `GH_WEBHOOK_SECRET`                         | app webhook secret                                                                                               |
+| `GH_CLIENT_ID` / `GH_CLIENT_SECRET`         | app OAuth creds                                                                                                  |
 | `BETTER_AUTH_SECRET`                        | `openssl rand -base64 32`                                                                                        |
-| `RUNNER_ACTION_PAT`                         | fine-grained PAT, `TouchTechClub/runner` → Contents: write (lets CI push action.yml + retag v1)                  |
+
+No PAT needed — the `runner` job mints an installation token via `actions/create-github-app-token` using the app's own creds. **One-time manual step: install the `runnerbox` GitHub App on `TouchTechClub/runner`** so the token can write there.
 
 **Variables:**
 
