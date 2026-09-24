@@ -179,6 +179,8 @@ jobs:
             fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
           '
       - run: bun run --cwd apps/cli build
+      # node22 ships npm 10; trusted publishing requires npm >= 11.5.1
+      - run: npm install -g npm@latest
       - name: Publish
         run: cd apps/cli && npm publish --provenance --access public
       - name: Commit version bump back to main
