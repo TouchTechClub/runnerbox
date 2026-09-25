@@ -22,6 +22,7 @@ import type { ChildProc } from "./proc.js";
 import { installAgentDevice, installCloudflared, prepareAndroid } from "./provision.js";
 import { ApiClient, HttpError } from "./api.js";
 import { countActiveDevices } from "./devices.js";
+import { run } from "./proc.js";
 
 const TUNNEL_URL_TIMEOUT_MS = 60_000;
 const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
@@ -31,6 +32,7 @@ const TUNNEL_PROBE_TIMEOUT_MS = 15_000;
 const TUNNEL_PROBE_FAILURE_LIMIT = 2;
 const PROXY_PROBE_TIMEOUT_MS = 10_000;
 const PROXY_PROBE_FAILURE_LIMIT = 2;
+const PROXY_RESTART_LIMIT = 5; // daemon can die repeatedly on GH macOS runners
 
 // ---------------------------------------------------------------------------
 // Shared run state (module-level so provision/supervise/shutdown all see it)
@@ -270,11 +272,11 @@ async function shutdown(reason: string, code: number): Promise<never> {
 async function handleDeadChildren(): Promise<boolean> {
   if (state.children.proxy?.dead) {
     const c = state.children.proxy;
-    if (c.restarts >= 1) {
-      error("agent-device proxy died twice — exiting");
+    if (c.restarts >= PROXY_RESTART_LIMIT) {
+      error(`agent-device proxy died ${PROXY_RESTART_LIMIT + 1} times — exiting`);
       return false;
     }
-    warn("restarting agent-device proxy");
+    warn(`restarting agent-device proxy (${c.restarts + 1}/${PROXY_RESTART_LIMIT})`);
     state.children.proxy = spawnProxy();
     state.children.proxy.restarts = c.restarts + 1;
   }
@@ -330,6 +332,30 @@ async function tunnelEdgeDead(): Promise<boolean> {
  * forever (observed on GH macOS runners ~60-90s after a client connects).
  * Proxy restart re-spawns its child daemon.
  */
+/**
+ * agent-device swallows daemon crashes into ndjson diagnostics under
+ * ~/.agent-device/logs — print the tail of the freshest ones into our step
+ * log so daemon deaths are diagnosable from the Actions UI.
+ */
+async function dumpRecentDaemonLogs(): Promise<void> {
+  const res = await run(
+    [
+      "/bin/sh",
+      "-c",
+      'ls -t ~/.agent-device/logs/*/*.ndjson ~/.agent-device/logs/*/*/*.ndjson 2>/dev/null | head -3',
+    ],
+    { timeoutMs: 10_000 },
+  );
+  for (const file of res.stdout.split("\n").filter(Boolean)) {
+    const tail = await run(["tail", "-n", "30", file], { timeoutMs: 10_000 });
+    if (tail.stdout.trim()) {
+      for (const line of tail.stdout.trimEnd().split("\n")) {
+        info(`[agent-device log ${file}] ${line}`);
+      }
+    }
+  }
+}
+
 async function proxyUpstreamDead(): Promise<boolean> {
   try {
     const res = await fetch(`http://127.0.0.1:${PROXY_PORT}/agent-device/health`, {
@@ -378,6 +404,7 @@ async function supervise(): Promise<never> {
       if (proxyProbeFailures >= PROXY_PROBE_FAILURE_LIMIT) {
         warn("killing wedged agent-device proxy to force restart");
         proxyProbeFailures = 0;
+        await dumpRecentDaemonLogs();
         const p = state.children.proxy!;
         p.dead = true;
         p.proc.kill("SIGTERM");
