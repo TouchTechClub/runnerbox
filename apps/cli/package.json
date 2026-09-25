@@ -2,6 +2,11 @@
   "name": "runnerbox",
   "version": "0.1.0",
   "description": "On-demand iOS simulators & Android emulators on your own GitHub Actions minutes.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TouchTechClub/runnerbox",
+    "directory": "apps/cli"
+  },
   "bin": {
     "runnerbox": "dist/cli.js"
   },
