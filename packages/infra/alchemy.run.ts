@@ -13,13 +13,25 @@ import * as Effect from "effect/Effect";
  *
  * Then:  bun run deploy    (in packages/infra, or `bun run deploy` at root)
  */
+// IMPORTANT: names are pinned explicitly. Alchemy's generated physical
+// names embed the deploying OS username, so `alchemy deploy` run by a
+// different user (ubuntu locally vs `runner` in CI) forks a whole parallel
+// stack — orphan workers, plus an EMPTY D1/KV. Pinned names make the stack
+// deployer-independent. Renaming after the fact = resource replacement, so
+// these must not change once data lives in them.
 export const db = Cloudflare.D1.Database("runnerbox-db", {
+  name: "runnerbox-db",
   migrations: "../db/migrations",
 });
 
-export const kv = Cloudflare.KV.Namespace("runnerbox-kv");
+export const kv = Cloudflare.KV.Namespace("runnerbox-kv", {
+  title: "runnerbox-kv",
+});
 
 export const api = Cloudflare.Worker("runnerbox-api", {
+  name: "runnerbox-api",
+  // Manage the custom domain declaratively so a worker replace re-attaches it.
+  domain: "api.runnerbox.dpdns.org",
   main: "../../apps/api/src/index.ts",
   compatibility: {
     flags: ["nodejs_compat"],
@@ -62,6 +74,8 @@ export default Alchemy.Stack(
     const apiWorker = yield* api;
 
     const web = yield* Cloudflare.Website.Vite("runnerbox-web", {
+      name: "runnerbox-web",
+      domain: "runnerbox.dpdns.org",
       rootDir: "../../apps/web",
       assets: {
         htmlHandling: "auto-trailing-slash",
