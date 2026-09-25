@@ -27,6 +27,8 @@ const TUNNEL_URL_TIMEOUT_MS = 60_000;
 const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/;
 const REGISTER_ATTEMPTS = 3;
 const HEARTBEAT_FAILURE_LIMIT = 3;
+const TUNNEL_PROBE_TIMEOUT_MS = 15_000;
+const TUNNEL_PROBE_FAILURE_LIMIT = 2;
 
 // ---------------------------------------------------------------------------
 // Shared run state (module-level so provision/supervise/shutdown all see it)
@@ -122,7 +124,18 @@ interface TunnelSpawn {
 
 function spawnTunnel(): TunnelSpawn {
   const proc = Bun.spawn(
-    [state.cloudflaredBin, "tunnel", "--url", `http://127.0.0.1:${PROXY_PORT}`, "--no-autoupdate"],
+    [
+      state.cloudflaredBin,
+      "tunnel",
+      // UDP egress on GH-hosted macOS runners dies silently under load —
+      // cloudflared's default QUIC never re-registers, leaving a dead 530
+      // tunnel on a live process. http2 stays on TCP.
+      "--protocol",
+      "http2",
+      "--url",
+      `http://127.0.0.1:${PROXY_PORT}`,
+      "--no-autoupdate",
+    ],
     { stdout: "pipe", stderr: "pipe", stdin: "ignore" },
   );
   const child = track("cloudflared", proc);
@@ -288,8 +301,30 @@ async function handleDeadChildren(): Promise<boolean> {
   return true;
 }
 
+/**
+ * Edge-side tunnel liveness. A zombie cloudflared (QUIC datagram dead but
+ * process alive) looks fine to process supervision while the edge serves
+ * 530 — the tunnel appears "live" in the API but is unreachable.
+ *
+ * Only status 530 and network errors/timeouts count as dead: other statuses
+ * (502/504/4xx) mean the edge reached our origin, i.e. the tunnel works and
+ * the proxy is just busy (e.g. building the Apple runner during `open`).
+ */
+async function tunnelEdgeDead(): Promise<boolean> {
+  if (!state.tunnelUrl) return false;
+  try {
+    const res = await fetch(`${state.tunnelUrl}/agent-device/health`, {
+      signal: AbortSignal.timeout(TUNNEL_PROBE_TIMEOUT_MS),
+    });
+    return res.status === 530;
+  } catch {
+    return true; // DNS/connect/timeout — edge can't reach us
+  }
+}
+
 async function supervise(): Promise<never> {
   let heartbeatFailures = 0;
+  let tunnelProbeFailures = 0;
   let lastDeviceSeenAt = Date.now(); // idle clock starts at boot
   for (;;) {
     await interruptibleSleep(HEARTBEAT_INTERVAL_SECONDS * 1000);
@@ -297,6 +332,22 @@ async function supervise(): Promise<never> {
     // --- children ---
     const childrenOk = await handleDeadChildren();
     if (!childrenOk) await shutdown("child process died twice", 1);
+
+    // --- tunnel liveness (edge-side; process can be a zombie) ---
+    if (!state.children.tunnel?.dead && (await tunnelEdgeDead())) {
+      tunnelProbeFailures += 1;
+      warn(`tunnel unreachable at edge (${tunnelProbeFailures}/${TUNNEL_PROBE_FAILURE_LIMIT})`);
+      if (tunnelProbeFailures >= TUNNEL_PROBE_FAILURE_LIMIT) {
+        warn("killing zombie cloudflared to force reconnect");
+        tunnelProbeFailures = 0;
+        const t = state.children.tunnel!;
+        t.dead = true; // guarantee handleDeadChildren sees it even if exit is slow
+        t.proc.kill("SIGTERM");
+        if (!(await handleDeadChildren())) await shutdown("tunnel restart failed", 1);
+      }
+    } else {
+      tunnelProbeFailures = 0;
+    }
 
     // --- device count ---
     const activeDevices = await countActiveDevices();
