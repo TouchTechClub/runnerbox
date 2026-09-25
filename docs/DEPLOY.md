@@ -21,7 +21,7 @@ Create at <https://github.com/settings/apps/new> (name suggestion: `runnerbox`).
 **Permissions (Repository):**
 
 - `Contents` → Read & write
-- `Workflows` → Read & write   _(required to commit .github/workflows/*)_
+- `Workflows` → Read & write _(required to commit .github/workflows/\*)_
 - `Actions` → Read & write
 - `Secrets` → Read & write
 - `Metadata` → Read (automatic)
