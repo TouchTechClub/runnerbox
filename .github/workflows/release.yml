@@ -95,6 +95,8 @@ jobs:
           git add action-src/action.yml
           git diff --cached --quiet || {
             git commit -m "release: action.yml sha256 for $TAG"
+            # race-safe: main may have moved since checkout (concurrent pushes)
+            git pull --rebase origin main
             git push origin HEAD:main
           }
       - name: Upload rendered action.yml for runner job
@@ -203,6 +205,7 @@ jobs:
           git add apps/cli/package.json
           git diff --cached --quiet || {
             git commit -m "release(cli): v${{ needs.preflight.outputs.version }}"
+            git pull --rebase origin main
             git push origin HEAD:main
           }
 
