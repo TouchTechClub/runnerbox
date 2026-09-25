@@ -86,6 +86,11 @@ jobs:
               --title "runnerbox $TAG" --generate-notes
           gh release upload "$TAG" runnerbox-agent-darwin-arm64.tar.gz \
             --repo "$GITHUB_REPOSITORY" --clobber
+          # action.yml's `version` input defaults to v1 — the rolling release
+          # users actually download from. Keep its tarball in lockstep with
+          # the sha256 embedded in action.yml or every run fails the checksum.
+          gh release upload v1 runnerbox-agent-darwin-arm64.tar.gz \
+            --repo "$GITHUB_REPOSITORY" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit rendered action.yml back to main
