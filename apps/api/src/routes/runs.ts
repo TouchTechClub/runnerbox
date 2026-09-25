@@ -424,7 +424,12 @@ runRoutes.post("/v1/runs/register", requireRunnerToken, async (c) => {
   if (
     !run ||
     run.repo_full_name !== repo.full_name ||
-    (run.state !== "dispatching" && run.state !== "queued" && run.state !== "booting")
+    // "live" is allowed: a restarted cloudflared re-registers the fresh
+    // tunnel URL onto the same run.
+    (run.state !== "dispatching" &&
+      run.state !== "queued" &&
+      run.state !== "booting" &&
+      run.state !== "live")
   ) {
     return apiError(c, 403, "run_not_accepted", "No dispatched run matching this gh_run_id.");
   }
