@@ -29,6 +29,8 @@ const REGISTER_ATTEMPTS = 3;
 const HEARTBEAT_FAILURE_LIMIT = 3;
 const TUNNEL_PROBE_TIMEOUT_MS = 15_000;
 const TUNNEL_PROBE_FAILURE_LIMIT = 2;
+const PROXY_PROBE_TIMEOUT_MS = 10_000;
+const PROXY_PROBE_FAILURE_LIMIT = 2;
 
 // ---------------------------------------------------------------------------
 // Shared run state (module-level so provision/supervise/shutdown all see it)
@@ -322,9 +324,29 @@ async function tunnelEdgeDead(): Promise<boolean> {
   }
 }
 
+/**
+ * Local proxy liveness. The proxy's embedded daemon can die while the proxy
+ * process stays up — /health then returns {"ok":false,"error":"fetch failed"}
+ * forever (observed on GH macOS runners ~60-90s after a client connects).
+ * Proxy restart re-spawns its child daemon.
+ */
+async function proxyUpstreamDead(): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${PROXY_PORT}/agent-device/health`, {
+      signal: AbortSignal.timeout(PROXY_PROBE_TIMEOUT_MS),
+    });
+    if (!res.ok) return true;
+    const body = (await res.json()) as { ok?: boolean; upstream?: { ok?: boolean } };
+    return body.ok === false || body.upstream?.ok === false;
+  } catch {
+    return true; // local connect/timeout — proxy wedged
+  }
+}
+
 async function supervise(): Promise<never> {
   let heartbeatFailures = 0;
   let tunnelProbeFailures = 0;
+  let proxyProbeFailures = 0;
   let lastDeviceSeenAt = Date.now(); // idle clock starts at boot
   for (;;) {
     await interruptibleSleep(HEARTBEAT_INTERVAL_SECONDS * 1000);
@@ -347,6 +369,22 @@ async function supervise(): Promise<never> {
       }
     } else {
       tunnelProbeFailures = 0;
+    }
+
+    // --- proxy liveness (upstream daemon can die inside a live proxy) ---
+    if (!state.children.proxy?.dead && (await proxyUpstreamDead())) {
+      proxyProbeFailures += 1;
+      warn(`proxy upstream dead (${proxyProbeFailures}/${PROXY_PROBE_FAILURE_LIMIT})`);
+      if (proxyProbeFailures >= PROXY_PROBE_FAILURE_LIMIT) {
+        warn("killing wedged agent-device proxy to force restart");
+        proxyProbeFailures = 0;
+        const p = state.children.proxy!;
+        p.dead = true;
+        p.proc.kill("SIGTERM");
+        if (!(await handleDeadChildren())) await shutdown("proxy restart failed", 1);
+      }
+    } else {
+      proxyProbeFailures = 0;
     }
 
     // --- device count ---
