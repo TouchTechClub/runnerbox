@@ -342,7 +342,7 @@ async function dumpRecentDaemonLogs(): Promise<void> {
     [
       "/bin/sh",
       "-c",
-      'ls -t ~/.agent-device/logs/*/*.ndjson ~/.agent-device/logs/*/*/*.ndjson 2>/dev/null | head -3',
+      "ls -t ~/.agent-device/logs/*/*.ndjson ~/.agent-device/logs/*/*/*.ndjson 2>/dev/null | head -3",
     ],
     { timeoutMs: 10_000 },
   );
