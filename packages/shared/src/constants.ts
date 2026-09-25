@@ -21,6 +21,9 @@ export const MAX_DEVICES_PER_RUN = 3;
  * Canonical workflow committed to the user's repo.
  * Keep minimal — api_url override lives in the composite action default,
  * not here, so the committed file stays stable across environments.
+ *
+ * `xcode-27` (public preview, arm64) carries the foldable iPhone Duo
+ * devicetype; `macos-latest` (Xcode 26.x) does not.
  */
 export const WORKFLOW_YAML = `name: runnerbox
 
@@ -29,7 +32,7 @@ on:
 
 jobs:
   runnerbox:
-    runs-on: macos-latest
+    runs-on: xcode-27
     timeout-minutes: 350
     steps:
       - name: RunnerBox agent
