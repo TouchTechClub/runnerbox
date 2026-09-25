@@ -181,8 +181,21 @@ jobs:
       - run: bun run --cwd apps/cli build
       # node22 ships npm 10; trusted publishing requires npm >= 11.5.1
       - run: npm install -g npm@latest
-      - name: Publish
+      - name: Publish (OIDC trusted publishing)
+        id: oidc
+        continue-on-error: true
         run: cd apps/cli && npm publish --provenance --access public
+      # Fallback when the npmjs.com trusted-publisher config doesn't match
+      # (403 "OIDC permission denied"). Requires an NPM_TOKEN repo secret —
+      # a granular access token with publish rights on the runnerbox package.
+      - name: Publish (NPM_TOKEN fallback)
+        if: steps.oidc.outcome == 'failure'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd apps/cli
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> "$HOME/.npmrc"
+          npm publish --provenance --access public
       - name: Commit version bump back to main
         run: |
           git config user.name "github-actions[bot]"
